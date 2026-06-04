@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.evanp</groupId>
+        <artifactId>f1-visualizer</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>f1-ingestion</artifactId>
+    <name>F1 Ingestion — OpenF1 Polling and Coordinate Normalization</name>
+
+    <dependencies>
+        <!-- Domain models -->
+        <dependency>
+            <groupId>com.evanp</groupId>
+            <artifactId>f1-core</artifactId>
+        </dependency>
+
+        <!-- Redis write service and JPA repos -->
+        <dependency>
+            <groupId>com.evanp</groupId>
+            <artifactId>f1-persistence</artifactId>
+        </dependency>
+
+        <!-- Spring Web for RestClient (OpenF1 HTTP polling) -->
+        <!-- Also provides @EnableScheduling via spring-context -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
