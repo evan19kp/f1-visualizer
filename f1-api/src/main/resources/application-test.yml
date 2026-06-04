@@ -1,0 +1,12 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: false
+
+app:
+  openai:
+    api-key: test-key
+  openf1:
+    base-url: http://localhost:9999
