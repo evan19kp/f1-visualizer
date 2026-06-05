@@ -46,6 +46,9 @@ app:
   openf1:
     base-url: ${OPENF1_BASE_URL:https://api.openf1.org/v1}
     poll-interval-ms: ${OPENF1_POLL_INTERVAL_MS:1000}
+  ingestion:
+    enabled: ${INGESTION_ENABLED:false}
+    session-key: ${OPENF1_SESSION_KEY:latest}
   s3:
     bucket: ${S3_BUCKET:f1-visualizer-assets}
     region: ${AWS_REGION:us-east-1}
