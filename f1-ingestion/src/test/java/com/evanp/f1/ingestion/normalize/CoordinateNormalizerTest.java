@@ -55,6 +55,17 @@ class CoordinateNormalizerTest {
     }
 
     @Test
+    void renormalize_afterBoundsExpand_mapsToNewSpace() {
+        SessionBounds oldBounds = SessionBounds.empty().expand(0.0, 0.0, 0.0).expand(10.0, 0.0, 0.0);
+        SessionBounds newBounds = oldBounds.expand(20.0, 0.0, 0.0);
+        NormalizedPosition oldPosition = new NormalizedPosition(1, 9161L, TIMESTAMP, 1.0, 0.0, 0.0);
+
+        NormalizedPosition renormalized = normalizer.renormalize(oldPosition, oldBounds, newBounds);
+
+        assertEquals(0.0, renormalized.x());
+    }
+
+    @Test
     void normalize_flatAxis_returnsZero() {
         OpenF1LocationResponse sample = location(44, 5.0, 5.0, 5.0);
 

@@ -1,10 +1,13 @@
 package com.evanp.f1.ingestion;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import org.mockito.ArgumentCaptor;
 
 import com.evanp.f1.core.position.NormalizedPosition;
 import com.evanp.f1.core.position.PositionStore;
@@ -71,6 +74,35 @@ class IngestionServiceTest {
         verify(positionStore).savePositions(SESSION_KEY, List.of(normalized));
         verify(positionStore).saveBounds(SESSION_KEY, updatedBounds);
         verify(positionStore).savePollCursor(SESSION_KEY, TIMESTAMP);
+    }
+
+    @Test
+    void pollOnce_whenBoundsExpand_renormalizesExistingPositions() {
+        CoordinateNormalizer realNormalizer = new CoordinateNormalizer();
+        IngestionService service = new IngestionService(
+                openF1Client, realNormalizer, positionStore, new IngestionProperties(true, String.valueOf(SESSION_KEY)));
+
+        Instant later = TIMESTAMP.plusSeconds(1);
+        SessionBounds oldBounds = SessionBounds.empty().expand(0.0, 0.0, 0.0).expand(10.0, 0.0, 0.0);
+        NormalizedPosition existing = new NormalizedPosition(1, SESSION_KEY, TIMESTAMP, 1.0, 0.0, 0.0);
+        OpenF1LocationResponse newSample =
+                new OpenF1LocationResponse(later, 2, 1219L, SESSION_KEY, 20.0, 0.0, 0.0);
+
+        when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.of(TIMESTAMP));
+        when(openF1Client.fetchLocations(String.valueOf(SESSION_KEY), Optional.of(TIMESTAMP)))
+                .thenReturn(List.of(newSample));
+        when(positionStore.getBounds(SESSION_KEY)).thenReturn(Optional.of(oldBounds));
+        when(positionStore.getAllPositions(SESSION_KEY)).thenReturn(List.of(existing));
+
+        service.pollOnce();
+
+        ArgumentCaptor<List<NormalizedPosition>> captor = ArgumentCaptor.forClass(List.class);
+        verify(positionStore).savePositions(eq(SESSION_KEY), captor.capture());
+
+        List<NormalizedPosition> saved = captor.getValue();
+        assertEquals(2, saved.size());
+        assertEquals(0.0, saved.stream().filter(p -> p.driverNumber() == 1).findFirst().orElseThrow().x());
+        assertEquals(1.0, saved.stream().filter(p -> p.driverNumber() == 2).findFirst().orElseThrow().x());
     }
 
     @Test

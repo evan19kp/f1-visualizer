@@ -1,5 +1,6 @@
 package com.evanp.f1.ingestion;
 
+import com.evanp.f1.core.position.NormalizedPosition;
 import com.evanp.f1.core.position.PositionStore;
 import com.evanp.f1.core.position.SessionBounds;
 import com.evanp.f1.ingestion.config.IngestionProperties;
@@ -9,7 +10,10 @@ import com.evanp.f1.ingestion.openf1.OpenF1Client;
 import com.evanp.f1.ingestion.openf1.OpenF1LocationResponse;
 import com.evanp.f1.ingestion.openf1.OpenF1SessionResponse;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +56,12 @@ public class IngestionService {
             SessionBounds bounds = positionStore.getBounds(storeSessionKey).orElse(SessionBounds.empty());
             NormalizationResult result = coordinateNormalizer.normalize(samples, bounds);
 
-            positionStore.savePositions(storeSessionKey, result.positions());
+            List<NormalizedPosition> positionsToSave =
+                    bounds.isInitialized() && !result.updatedBounds().equals(bounds)
+                            ? mergeWithRenormalizedExisting(bounds, result, storeSessionKey)
+                            : result.positions();
+
+            positionStore.savePositions(storeSessionKey, positionsToSave);
             positionStore.saveBounds(storeSessionKey, result.updatedBounds());
 
             Instant maxTimestamp =
@@ -61,6 +70,20 @@ public class IngestionService {
         } catch (Exception e) {
             log.error("Ingestion poll failed: {}", e.getMessage(), e);
         }
+    }
+
+    private List<NormalizedPosition> mergeWithRenormalizedExisting(
+            SessionBounds oldBounds, NormalizationResult result, long storeSessionKey) {
+        Map<Integer, NormalizedPosition> merged = new LinkedHashMap<>();
+        for (NormalizedPosition existing : positionStore.getAllPositions(storeSessionKey)) {
+            merged.put(
+                    existing.driverNumber(),
+                    coordinateNormalizer.renormalize(existing, oldBounds, result.updatedBounds()));
+        }
+        for (NormalizedPosition fresh : result.positions()) {
+            merged.put(fresh.driverNumber(), fresh);
+        }
+        return new ArrayList<>(merged.values());
     }
 
     private Optional<Instant> resolveSince(String configKey) {

@@ -31,6 +31,33 @@ public class CoordinateNormalizer {
         return new NormalizationResult(positions, updatedBounds);
     }
 
+    public NormalizedPosition renormalize(
+            NormalizedPosition position, SessionBounds oldBounds, SessionBounds newBounds) {
+        return new NormalizedPosition(
+                position.driverNumber(),
+                position.sessionKey(),
+                position.timestamp(),
+                normalizeAxis(
+                        denormalizeAxis(position.x(), oldBounds.minX(), oldBounds.maxX()),
+                        newBounds.minX(),
+                        newBounds.maxX()),
+                normalizeAxis(
+                        denormalizeAxis(position.y(), oldBounds.minY(), oldBounds.maxY()),
+                        newBounds.minY(),
+                        newBounds.maxY()),
+                normalizeAxis(
+                        denormalizeAxis(position.z(), oldBounds.minZ(), oldBounds.maxZ()),
+                        newBounds.minZ(),
+                        newBounds.maxZ()));
+    }
+
+    private static double denormalizeAxis(double normalized, double min, double max) {
+        if (max == min) {
+            return min;
+        }
+        return min + (normalized + 1.0) / 2.0 * (max - min);
+    }
+
     private static double normalizeAxis(double value, double min, double max) {
         if (max == min) {
             return 0.0;

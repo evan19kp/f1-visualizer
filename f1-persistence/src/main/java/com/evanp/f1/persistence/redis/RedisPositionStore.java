@@ -6,7 +6,9 @@ import com.evanp.f1.core.position.SessionBounds;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +43,19 @@ public class RedisPositionStore implements PositionStore {
             return Optional.empty();
         }
         return deserialize(json, NormalizedPosition.class);
+    }
+
+    @Override
+    public List<NormalizedPosition> getAllPositions(long sessionKey) {
+        Map<Object, Object> entries = redis.opsForHash().entries(positionsKey(sessionKey));
+        if (entries.isEmpty()) {
+            return List.of();
+        }
+        List<NormalizedPosition> positions = new ArrayList<>(entries.size());
+        for (Object json : entries.values()) {
+            deserialize((String) json, NormalizedPosition.class).ifPresent(positions::add);
+        }
+        return positions;
     }
 
     @Override
