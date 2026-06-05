@@ -10,7 +10,9 @@ import com.evanp.f1.core.position.SessionBounds;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,6 +93,23 @@ class RedisPositionStoreTest {
         Optional<NormalizedPosition> latest = store.getLatest(SESSION_KEY, 99);
 
         assertThat(latest).isEmpty();
+    }
+
+    @Test
+    void getAllPositions_returnsEveryStoredDriver() throws Exception {
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        Instant timestamp = Instant.parse("2024-03-02T15:00:00Z");
+        NormalizedPosition first = new NormalizedPosition(1, SESSION_KEY, timestamp, 0.1, 0.2, 0.3);
+        NormalizedPosition second = new NormalizedPosition(44, SESSION_KEY, timestamp, 0.4, 0.5, 0.6);
+        Map<Object, Object> entries = new LinkedHashMap<>();
+        entries.put("1", objectMapper.writeValueAsString(first));
+        entries.put("44", objectMapper.writeValueAsString(second));
+        when(hashOperations.entries("f1:session:" + SESSION_KEY + ":positions")).thenReturn(entries);
+
+        List<NormalizedPosition> positions = store.getAllPositions(SESSION_KEY);
+
+        assertThat(positions).hasSize(2);
+        assertThat(positions).extracting(NormalizedPosition::driverNumber).containsExactlyInAnyOrder(1, 44);
     }
 
     @Test
