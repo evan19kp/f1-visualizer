@@ -1,0 +1,107 @@
+package com.evanp.f1.persistence.redis;
+
+import com.evanp.f1.core.position.NormalizedPosition;
+import com.evanp.f1.core.position.PositionStore;
+import com.evanp.f1.core.position.SessionBounds;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
+
+@Component
+public class RedisPositionStore implements PositionStore {
+
+    private static final Logger log = LoggerFactory.getLogger(RedisPositionStore.class);
+
+    private final StringRedisTemplate redis;
+    private final ObjectMapper objectMapper;
+
+    public RedisPositionStore(StringRedisTemplate redis, ObjectMapper objectMapper) {
+        this.redis = redis;
+        this.objectMapper = objectMapper;
+    }
+
+    @Override
+    public void savePositions(long sessionKey, List<NormalizedPosition> positions) {
+        String key = positionsKey(sessionKey);
+        for (NormalizedPosition position : positions) {
+            redis.opsForHash().put(key, String.valueOf(position.driverNumber()), toJson(position));
+        }
+    }
+
+    @Override
+    public Optional<NormalizedPosition> getLatest(long sessionKey, int driverNumber) {
+        String json = (String) redis.opsForHash().get(positionsKey(sessionKey), String.valueOf(driverNumber));
+        if (json == null) {
+            return Optional.empty();
+        }
+        return deserialize(json, NormalizedPosition.class);
+    }
+
+    @Override
+    public Optional<SessionBounds> getBounds(long sessionKey) {
+        String json = redis.opsForValue().get(boundsKey(sessionKey));
+        if (json == null) {
+            return Optional.empty();
+        }
+        return deserialize(json, SessionBounds.class);
+    }
+
+    @Override
+    public void saveBounds(long sessionKey, SessionBounds bounds) {
+        redis.opsForValue().set(boundsKey(sessionKey), toJson(bounds));
+    }
+
+    @Override
+    public Optional<Instant> getPollCursor(long sessionKey) {
+        String value = redis.opsForValue().get(pollCursorKey(sessionKey));
+        if (value == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Instant.parse(value));
+        } catch (Exception e) {
+            log.warn("Failed to parse poll cursor for session {}: {}", sessionKey, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public void savePollCursor(long sessionKey, Instant cursor) {
+        redis.opsForValue().set(pollCursorKey(sessionKey), cursor.toString());
+    }
+
+    static String positionsKey(long sessionKey) {
+        return "f1:session:" + sessionKey + ":positions";
+    }
+
+    static String boundsKey(long sessionKey) {
+        return "f1:session:" + sessionKey + ":bounds";
+    }
+
+    static String pollCursorKey(long sessionKey) {
+        return "f1:session:" + sessionKey + ":poll_cursor";
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize " + value.getClass().getSimpleName(), e);
+        }
+    }
+
+    private <T> Optional<T> deserialize(String json, Class<T> type) {
+        try {
+            return Optional.of(objectMapper.readValue(json, type));
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to deserialize {}: {}", type.getSimpleName(), e.getMessage());
+            return Optional.empty();
+        }
+    }
+}
