@@ -9,6 +9,7 @@ import com.evanp.f1.ingestion.normalize.NormalizationResult;
 import com.evanp.f1.ingestion.openf1.OpenF1Client;
 import com.evanp.f1.ingestion.openf1.OpenF1LocationResponse;
 import com.evanp.f1.ingestion.openf1.OpenF1SessionResponse;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Component;
 public class IngestionService {
 
     private static final Logger log = LoggerFactory.getLogger(IngestionService.class);
+    private static final Duration POLL_WINDOW = Duration.ofMinutes(5);
 
     private final OpenF1Client openF1Client;
     private final CoordinateNormalizer coordinateNormalizer;
@@ -43,15 +45,20 @@ public class IngestionService {
     public void pollOnce() {
         try {
             String configKey = properties.sessionKey();
+            Optional<Instant> since = resolveSince(configKey);
+            Instant until = resolveUntil(since.orElse(Instant.EPOCH));
             List<OpenF1LocationResponse> samples =
-                    openF1Client.fetchLocations(configKey, resolveSince(configKey));
-            if (samples.isEmpty()) {
+                    openF1Client.fetchLocations(configKey, since, Optional.of(until));
+
+            long storeSessionKey = resolveStoreSessionKey(configKey, samples);
+            if (storeSessionKey < 0) {
                 return;
             }
 
-            long storeSessionKey = isNumericSessionKey(configKey)
-                    ? Long.parseLong(configKey)
-                    : samples.getFirst().sessionKey();
+            if (samples.isEmpty()) {
+                advanceCursorThroughEmptyWindow(storeSessionKey, since.orElse(Instant.EPOCH), until);
+                return;
+            }
 
             SessionBounds bounds = positionStore.getBounds(storeSessionKey).orElse(SessionBounds.empty());
             NormalizationResult result = coordinateNormalizer.normalize(samples, bounds);
@@ -84,6 +91,27 @@ public class IngestionService {
             merged.put(fresh.driverNumber(), fresh);
         }
         return new ArrayList<>(merged.values());
+    }
+
+    private Instant resolveUntil(Instant since) {
+        Instant now = Instant.now();
+        Instant windowEnd = since.plus(POLL_WINDOW);
+        return windowEnd.isBefore(now) ? windowEnd : now;
+    }
+
+    private void advanceCursorThroughEmptyWindow(long storeSessionKey, Instant since, Instant until) {
+        if (until.isAfter(since)) {
+            positionStore.savePollCursor(storeSessionKey, until);
+        }
+    }
+
+    private long resolveStoreSessionKey(String configKey, List<OpenF1LocationResponse> samples) {
+        if (!samples.isEmpty()) {
+            return isNumericSessionKey(configKey)
+                    ? Long.parseLong(configKey)
+                    : samples.getFirst().sessionKey();
+        }
+        return resolveCursorSessionKey(configKey);
     }
 
     private Optional<Instant> resolveSince(String configKey) {

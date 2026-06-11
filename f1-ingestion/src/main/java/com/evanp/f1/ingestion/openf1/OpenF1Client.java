@@ -22,7 +22,8 @@ public class OpenF1Client {
         this.restClient = builder.baseUrl(baseUrl).build();
     }
 
-    public List<OpenF1LocationResponse> fetchLocations(String sessionKey, Optional<Instant> since) {
+    public List<OpenF1LocationResponse> fetchLocations(
+            String sessionKey, Optional<Instant> since, Optional<Instant> until) {
         try {
             List<OpenF1LocationResponse> locations =
                     restClient
@@ -31,6 +32,7 @@ public class OpenF1Client {
                                     uriBuilder -> {
                                         uriBuilder.path("/location").queryParam("session_key", sessionKey);
                                         since.ifPresent(instant -> uriBuilder.queryParam("date>", instant));
+                                        until.ifPresent(instant -> uriBuilder.queryParam("date<", instant));
                                         return uriBuilder.build();
                                     })
                             .retrieve()

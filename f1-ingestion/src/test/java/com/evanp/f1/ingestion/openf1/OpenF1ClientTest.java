@@ -54,7 +54,7 @@ class OpenF1ClientTest {
         server.expect(requestTo("http://localhost/location?session_key=9161"))
                 .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
 
-        List<OpenF1LocationResponse> locations = client.fetchLocations("9161", Optional.empty());
+        List<OpenF1LocationResponse> locations = client.fetchLocations("9161", Optional.empty(), Optional.empty());
 
         assertEquals(1, locations.size());
         assertEquals(44, locations.getFirst().driverNumber());
@@ -69,7 +69,19 @@ class OpenF1ClientTest {
         server.expect(requestTo("http://localhost/location?session_key=9161&date%3E=2024-03-02T14:00:00Z"))
                 .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
 
-        assertTrue(client.fetchLocations("9161", Optional.of(since)).isEmpty());
+        assertTrue(client.fetchLocations("9161", Optional.of(since), Optional.empty()).isEmpty());
+    }
+
+    @Test
+    void fetchLocations_appendsUntilFilterWhenPresent() {
+        Instant since = Instant.parse("2024-03-02T14:00:00Z");
+        Instant until = Instant.parse("2024-03-02T14:05:00Z");
+
+        server.expect(requestTo(
+                        "http://localhost/location?session_key=9161&date%3E=2024-03-02T14:00:00Z&date%3C=2024-03-02T14:05:00Z"))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+        assertTrue(client.fetchLocations("9161", Optional.of(since), Optional.of(until)).isEmpty());
     }
 
     @Test
@@ -77,7 +89,7 @@ class OpenF1ClientTest {
         server.expect(requestTo("http://localhost/location?session_key=9161"))
                 .andRespond(withServerError());
 
-        assertTrue(client.fetchLocations("9161", Optional.empty()).isEmpty());
+        assertTrue(client.fetchLocations("9161", Optional.empty(), Optional.empty()).isEmpty());
     }
 
     @Test

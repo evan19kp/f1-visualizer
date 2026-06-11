@@ -3,6 +3,7 @@ package com.evanp.f1.ingestion;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,7 +64,8 @@ class IngestionServiceTest {
                 .thenReturn(Optional.of(new OpenF1SessionResponse(
                         SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP)));
         when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.empty());
-        when(openF1Client.fetchLocations(String.valueOf(SESSION_KEY), Optional.of(TIMESTAMP)))
+        when(openF1Client.fetchLocations(
+                        eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), isA(Optional.class)))
                 .thenReturn(List.of(sample));
         when(positionStore.getBounds(SESSION_KEY)).thenReturn(Optional.empty());
         when(coordinateNormalizer.normalize(List.of(sample), SessionBounds.empty()))
@@ -89,7 +91,8 @@ class IngestionServiceTest {
                 new OpenF1LocationResponse(later, 2, 1219L, SESSION_KEY, 20.0, 0.0, 0.0);
 
         when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.of(TIMESTAMP));
-        when(openF1Client.fetchLocations(String.valueOf(SESSION_KEY), Optional.of(TIMESTAMP)))
+        when(openF1Client.fetchLocations(
+                        eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), isA(Optional.class)))
                 .thenReturn(List.of(newSample));
         when(positionStore.getBounds(SESSION_KEY)).thenReturn(Optional.of(oldBounds));
         when(positionStore.getAllPositions(SESSION_KEY)).thenReturn(List.of(existing));
@@ -111,13 +114,14 @@ class IngestionServiceTest {
                 .thenReturn(Optional.of(new OpenF1SessionResponse(
                         SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP)));
         when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.empty());
-        when(openF1Client.fetchLocations(String.valueOf(SESSION_KEY), Optional.of(TIMESTAMP)))
+        when(openF1Client.fetchLocations(
+                        eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), isA(Optional.class)))
                 .thenReturn(List.of());
 
         ingestionService.pollOnce();
 
         verify(positionStore, never()).savePositions(eq(SESSION_KEY), any());
         verify(positionStore, never()).saveBounds(eq(SESSION_KEY), any());
-        verify(positionStore, never()).savePollCursor(eq(SESSION_KEY), any());
+        verify(positionStore).savePollCursor(eq(SESSION_KEY), isA(Instant.class));
     }
 }
