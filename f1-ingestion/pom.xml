@@ -27,6 +27,11 @@
             <artifactId>f1-persistence</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.evanp</groupId>
+            <artifactId>f1-ai</artifactId>
+        </dependency>
+
         <!-- Spring Web for RestClient (OpenF1 HTTP polling) -->
         <!-- Also provides @EnableScheduling via spring-context -->
         <dependency>

@@ -81,6 +81,32 @@ class OpenF1ClientTest {
     }
 
     @Test
+    void fetchRaceControl_returnsParsedResponses() {
+        String body =
+                """
+                [
+                  {
+                    "date": "2024-03-02T15:10:00+00:00",
+                    "category": "SafetyCar",
+                    "message": "SAFETY CAR DEPLOYED",
+                    "session_key": 9161,
+                    "meeting_key": 1219,
+                    "lap_number": 12
+                  }
+                ]
+                """;
+
+        server.expect(requestTo("http://localhost/race_control?session_key=9161"))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        List<OpenF1RaceControlResponse> messages = client.fetchRaceControl("9161", Optional.empty());
+
+        assertEquals(1, messages.size());
+        assertEquals("SAFETY CAR DEPLOYED", messages.getFirst().message());
+        assertEquals(9161L, messages.getFirst().sessionKey());
+    }
+
+    @Test
     void fetchSession_returnsFirstResult() {
         String body =
                 """
