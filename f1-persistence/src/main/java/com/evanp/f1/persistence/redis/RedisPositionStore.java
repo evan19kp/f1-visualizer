@@ -30,9 +30,21 @@ public class RedisPositionStore implements PositionStore {
 
     @Override
     public void savePositions(long sessionKey, List<NormalizedPosition> positions) {
+        if (positions.isEmpty()) {
+            return;
+        }
         String key = positionsKey(sessionKey);
         for (NormalizedPosition position : positions) {
             redis.opsForHash().put(key, String.valueOf(position.driverNumber()), toJson(position));
+        }
+        publishPositions(sessionKey, positions);
+    }
+
+    private void publishPositions(long sessionKey, List<NormalizedPosition> positions) {
+        try {
+            redis.convertAndSend(pubSubChannel(sessionKey), objectMapper.writeValueAsString(positions));
+        } catch (Exception e) {
+            log.warn("Failed to publish positions for session {}: {}", sessionKey, e.getMessage());
         }
     }
 
@@ -101,6 +113,10 @@ public class RedisPositionStore implements PositionStore {
 
     static String pollCursorKey(long sessionKey) {
         return "f1:session:" + sessionKey + ":poll_cursor";
+    }
+
+    static String pubSubChannel(long sessionKey) {
+        return "f1:pubsub:session:" + sessionKey + ":positions";
     }
 
     private String toJson(Object value) {
