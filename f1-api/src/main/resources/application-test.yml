@@ -1,4 +1,10 @@
 spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+      - org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
+      - org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration
   jpa:
     hibernate:
       ddl-auto: none
@@ -6,6 +12,8 @@ spring:
     enabled: false
 
 app:
+  ingestion:
+    enabled: false
   openai:
     api-key: test-key
   openf1:
