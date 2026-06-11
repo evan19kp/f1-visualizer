@@ -13,11 +13,17 @@ public class InMemoryInsightStore implements InsightStore {
 
     @Override
     public void save(long sessionKey, RaceInsight insight) {
+        if (insight == null) {
+            throw new IllegalArgumentException("insight cannot be null");
+        }
         bySession.computeIfAbsent(sessionKey, ignored -> new ConcurrentLinkedDeque<>()).addFirst(insight);
     }
 
     @Override
     public List<RaceInsight> getRecent(long sessionKey, int limit) {
+        if (limit < 0) {
+            throw new IllegalArgumentException("limit must be non-negative");
+        }
         Deque<RaceInsight> insights = bySession.get(sessionKey);
         if (insights == null) {
             return List.of();
