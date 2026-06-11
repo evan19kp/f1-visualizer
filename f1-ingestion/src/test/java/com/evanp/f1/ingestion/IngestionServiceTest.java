@@ -19,6 +19,7 @@ import com.evanp.f1.ingestion.normalize.NormalizationResult;
 import com.evanp.f1.ingestion.openf1.OpenF1Client;
 import com.evanp.f1.ingestion.openf1.OpenF1LocationResponse;
 import com.evanp.f1.ingestion.openf1.OpenF1SessionResponse;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -33,6 +34,7 @@ class IngestionServiceTest {
 
     private static final long SESSION_KEY = 9161L;
     private static final Instant TIMESTAMP = Instant.parse("2024-03-02T15:00:00Z");
+    private static final Duration POLL_WINDOW = Duration.ofMinutes(5);
 
     @Mock
     private OpenF1Client openF1Client;
@@ -118,10 +120,15 @@ class IngestionServiceTest {
                         eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), isA(Optional.class)))
                 .thenReturn(List.of());
 
+        Instant since = TIMESTAMP;
+        Instant windowEnd = since.plus(POLL_WINDOW);
+        Instant now = Instant.now();
+        Instant expectedUntil = windowEnd.isBefore(now) ? windowEnd : now;
+
         ingestionService.pollOnce();
 
         verify(positionStore, never()).savePositions(eq(SESSION_KEY), any());
         verify(positionStore, never()).saveBounds(eq(SESSION_KEY), any());
-        verify(positionStore).savePollCursor(eq(SESSION_KEY), isA(Instant.class));
+        verify(positionStore).savePollCursor(eq(SESSION_KEY), eq(expectedUntil));
     }
 }
