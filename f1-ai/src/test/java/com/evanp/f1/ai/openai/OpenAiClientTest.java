@@ -50,9 +50,12 @@ class OpenAiClientTest {
 
     @Test
     void generateCommentary_noOpsWhenApiKeyBlank() {
-        OpenAiClient noKeyClient = new OpenAiClient(RestClient.builder(), new OpenAiProperties("", "gpt-4o-mini", 30));
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer noKeyServer = MockRestServiceServer.bindTo(builder).build();
+        OpenAiClient noKeyClient = new OpenAiClient(builder, new OpenAiProperties("", "gpt-4o-mini", 30));
         RaceEvent event = new RaceEvent(9161L, Instant.now(), RaceEventType.OVERTAKE, "P3 passes P4");
 
         assertTrue(noKeyClient.generateCommentary(event).isEmpty());
+        noKeyServer.verify();
     }
 }
