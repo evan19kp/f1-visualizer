@@ -1,5 +1,6 @@
 package com.evanp.f1.api;
 
+import com.evanp.f1.ai.openai.OpenAiClient;
 import com.evanp.f1.api.websocket.RedisPositionBroadcastBridge;
 import com.evanp.f1.core.position.PositionStore;
 import com.evanp.f1.ingestion.openf1.OpenF1Client;
@@ -26,6 +27,9 @@ class F1VisualizerApplicationTests {
 
     @MockitoBean
     private RedisPositionBroadcastBridge redisPositionBroadcastBridge;
+
+    @MockitoBean
+    private OpenAiClient openAiClient;
 
     @Test
     void contextLoads() {

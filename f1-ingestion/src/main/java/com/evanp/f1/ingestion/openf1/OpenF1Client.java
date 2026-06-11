@@ -43,6 +43,26 @@ public class OpenF1Client {
         }
     }
 
+    public List<OpenF1RaceControlResponse> fetchRaceControl(String sessionKey, Optional<Instant> since) {
+        try {
+            List<OpenF1RaceControlResponse> messages =
+                    restClient
+                            .get()
+                            .uri(uriBuilder -> {
+                                uriBuilder.path("/race_control").queryParam("session_key", sessionKey);
+                                since.ifPresent(instant -> uriBuilder.queryParam("date>", instant));
+                                return uriBuilder.build();
+                            })
+                            .retrieve()
+                            .body(new ParameterizedTypeReference<>() {});
+
+            return messages != null ? messages : List.of();
+        } catch (RestClientException e) {
+            log.error("OpenF1 /race_control request failed for session {}: {}", sessionKey, e.getMessage());
+            return List.of();
+        }
+    }
+
     public Optional<OpenF1SessionResponse> fetchSession(String sessionKey) {
         try {
             OpenF1SessionResponse[] sessions =

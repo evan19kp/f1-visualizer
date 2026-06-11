@@ -1,5 +1,6 @@
 package com.evanp.f1.ai.service;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -13,6 +14,10 @@ import com.evanp.f1.core.event.RaceEvent;
 import com.evanp.f1.core.event.RaceEventType;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +47,31 @@ class RaceEngineerServiceTest {
 
         service.generateCommentary(event);
         service.generateCommentary(event);
+
+        verify(openAiClient, times(1)).generateCommentary(event);
+        verify(insightStore, times(1)).save(eq(9161L), any());
+    }
+
+    @Test
+    void rateLimit_concurrentSameSession_skipsSecondCallWithinWindow() throws Exception {
+        RaceEvent event = new RaceEvent(9161L, Instant.now(), RaceEventType.UNDERCUT, "Leader pits");
+        when(openAiClient.generateCommentary(event)).thenReturn(Optional.of("Stay out one more lap."));
+
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            for (int i = 0; i < 2; i++) {
+                executor.submit(() -> {
+                    barrier.await();
+                    service.generateCommentary(event);
+                    return null;
+                });
+            }
+            executor.shutdown();
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+        }
 
         verify(openAiClient, times(1)).generateCommentary(event);
         verify(insightStore, times(1)).save(eq(9161L), any());

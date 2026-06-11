@@ -21,6 +21,8 @@ app:
     expiration-ms: 3600000
   ingestion:
     enabled: false
+  ai:
+    enabled: false
   openai:
     api-key: test-key
   openf1:

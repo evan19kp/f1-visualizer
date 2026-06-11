@@ -42,7 +42,7 @@ public class RaceEngineerService {
         Instant now = Instant.now();
         AtomicBoolean allowed = new AtomicBoolean(false);
 
-        lastCallBySession.asMap().compute(sessionKey, (k, lastCall) -> {
+        lastCallBySession.asMap().compute(sessionKey, (key, lastCall) -> {
             if (lastCall == null
                     || Duration.between(lastCall, now).getSeconds() >= properties.rateLimitSeconds()) {
                 allowed.set(true);

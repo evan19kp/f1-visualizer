@@ -2,11 +2,13 @@ package com.evanp.f1.ai.openai;
 
 import com.evanp.f1.ai.config.OpenAiProperties;
 import com.evanp.f1.core.event.RaceEvent;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -19,12 +21,25 @@ public class OpenAiClient {
     private static final String SYSTEM_PROMPT =
             "You are a concise Formula 1 race engineer. Respond in 2-3 sentences with "
                     + "actionable, factual commentary for the driver.";
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
 
     private final RestClient restClient;
     private final OpenAiProperties properties;
 
     public OpenAiClient(RestClient.Builder builder, OpenAiProperties properties) {
-        this.restClient = builder.baseUrl(BASE_URL).build();
+        this(builder, properties, true);
+    }
+
+    OpenAiClient(RestClient.Builder builder, OpenAiProperties properties, boolean applyTimeouts) {
+        RestClient.Builder configured = builder.baseUrl(BASE_URL);
+        if (applyTimeouts) {
+            SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+            requestFactory.setConnectTimeout(CONNECT_TIMEOUT);
+            requestFactory.setReadTimeout(READ_TIMEOUT);
+            configured = configured.requestFactory(requestFactory);
+        }
+        this.restClient = configured.build();
         this.properties = properties;
     }
 
