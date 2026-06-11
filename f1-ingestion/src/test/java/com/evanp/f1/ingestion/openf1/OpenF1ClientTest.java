@@ -107,6 +107,24 @@ class OpenF1ClientTest {
     }
 
     @Test
+    void fetchRaceControl_appendsDateFilterWhenSincePresent() {
+        Instant since = Instant.parse("2024-03-02T14:00:00Z");
+
+        server.expect(requestTo("http://localhost/race_control?session_key=9161&date%3E=2024-03-02T14:00:00Z"))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+        assertTrue(client.fetchRaceControl("9161", Optional.of(since)).isEmpty());
+    }
+
+    @Test
+    void fetchRaceControl_onServerError_returnsEmptyList() {
+        server.expect(requestTo("http://localhost/race_control?session_key=9161"))
+                .andRespond(withServerError());
+
+        assertTrue(client.fetchRaceControl("9161", Optional.empty()).isEmpty());
+    }
+
+    @Test
     void fetchSession_returnsFirstResult() {
         String body =
                 """

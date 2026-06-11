@@ -57,4 +57,16 @@ class InsightControllerTest {
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$").isEmpty());
     }
+
+    @Test
+    void getInsights_rejectsInvalidLimit() throws Exception {
+        mockMvc.perform(get("/api/sessions/{sessionKey}/insights", SESSION_KEY).param("limit", "0"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getInsights_rejectsNonNumericLimit() throws Exception {
+        mockMvc.perform(get("/api/sessions/{sessionKey}/insights", SESSION_KEY).param("limit", "abc"))
+                .andExpect(status().isBadRequest());
+    }
 }

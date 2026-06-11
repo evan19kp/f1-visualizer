@@ -28,6 +28,9 @@ public class RaceControlPoller {
     private final IngestionProperties ingestionProperties;
     private final ConcurrentHashMap<Long, Instant> cursorBySession = new ConcurrentHashMap<>();
 
+    private volatile String cachedConfigKey;
+    private volatile long cachedSessionKey = -1L;
+
     public RaceControlPoller(
             OpenF1Client openF1Client,
             RaceControlEventDetector eventDetector,
@@ -41,9 +44,11 @@ public class RaceControlPoller {
 
     @Scheduled(fixedDelayString = "${app.ai.poll-interval-ms:5000}")
     public void poll() {
+        long sessionKey = -1L;
+        Instant pollStartedAt = Instant.now();
         try {
             String configKey = ingestionProperties.sessionKey();
-            long sessionKey = resolveSessionKey(configKey);
+            sessionKey = resolveSessionKey(configKey);
             if (sessionKey < 0) {
                 return;
             }
@@ -51,11 +56,19 @@ public class RaceControlPoller {
             Optional<Instant> since = Optional.ofNullable(cursorBySession.get(sessionKey));
             List<OpenF1RaceControlResponse> messages = openF1Client.fetchRaceControl(configKey, since);
             for (OpenF1RaceControlResponse message : messages) {
+                Optional<RaceEvent> event = eventDetector.detect(message);
+                if (event.isPresent()) {
+                    fireCommentary(event.get());
+                }
                 advanceCursor(sessionKey, message.date());
-                eventDetector.detect(message).ifPresent(this::fireCommentary);
             }
         } catch (Exception e) {
-            log.error("Race control poll failed: {}", e.getMessage(), e);
+            log.error(
+                    "Race control poll failed for sessionKey={} at {}: {}",
+                    sessionKey,
+                    pollStartedAt,
+                    e.getMessage(),
+                    e);
         }
     }
 
@@ -74,18 +87,29 @@ public class RaceControlPoller {
         if (isNumericSessionKey(configKey)) {
             return Long.parseLong(configKey);
         }
-        return openF1Client.fetchSession(configKey).map(OpenF1SessionResponse::sessionKey).orElse(-1L);
+        synchronized (this) {
+            if (configKey != null && configKey.equals(cachedConfigKey) && cachedSessionKey >= 0) {
+                return cachedSessionKey;
+            }
+            long resolved =
+                    openF1Client.fetchSession(configKey).map(OpenF1SessionResponse::sessionKey).orElse(-1L);
+            if (resolved >= 0) {
+                cachedConfigKey = configKey;
+                cachedSessionKey = resolved;
+            }
+            return resolved;
+        }
     }
 
     private static boolean isNumericSessionKey(String sessionKey) {
         if (sessionKey == null || sessionKey.isBlank()) {
             return false;
         }
-        for (int i = 0; i < sessionKey.length(); i++) {
-            if (!Character.isDigit(sessionKey.charAt(i))) {
-                return false;
-            }
+        try {
+            Long.parseLong(sessionKey);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
         }
-        return true;
     }
 }
