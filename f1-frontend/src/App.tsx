@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { ScenePlaceholder } from './components/ScenePlaceholder'
+import { RaceCanvas } from './components/scene/RaceCanvas'
 import { DEFAULT_SESSION_KEY } from './config/session'
 import { useInitialPositions } from './hooks/useInitialPositions'
 import { useStompPositions } from './hooks/useStompPositions'
@@ -45,7 +45,7 @@ export default function App(): React.JSX.Element {
         </span>
       </header>
       <main className="flex flex-1 p-4">
-        <ScenePlaceholder />
+        <RaceCanvas />
       </main>
     </div>
   )
