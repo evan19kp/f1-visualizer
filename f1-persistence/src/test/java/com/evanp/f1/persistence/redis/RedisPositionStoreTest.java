@@ -1,12 +1,15 @@
 package com.evanp.f1.persistence.redis;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.evanp.f1.core.position.NormalizedPosition;
 import com.evanp.f1.core.position.SessionBounds;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.Instant;
@@ -66,6 +69,38 @@ class RedisPositionStoreTest {
         NormalizedPosition roundTrip =
                 objectMapper.readValue(jsonCaptor.getValue(), NormalizedPosition.class);
         assertThat(roundTrip).isEqualTo(position);
+        verify(redisTemplate)
+                .convertAndSend(
+                        eq("f1:pubsub:session:" + SESSION_KEY + ":positions"),
+                        eq(objectMapper.writeValueAsString(List.of(position))));
+    }
+
+    @Test
+    void savePositions_publishesJsonArrayToPubSubChannel() throws Exception {
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        long sessionKey = 9161L;
+        Instant timestamp = Instant.parse("2024-03-02T15:00:00Z");
+        NormalizedPosition first = new NormalizedPosition(1, sessionKey, timestamp, 0.1, 0.2, 0.3);
+        NormalizedPosition second = new NormalizedPosition(44, sessionKey, timestamp, 0.4, 0.5, 0.6);
+        List<NormalizedPosition> batch = List.of(first, second);
+
+        store.savePositions(sessionKey, batch);
+
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(redisTemplate)
+                .convertAndSend(eq("f1:pubsub:session:9161:positions"), messageCaptor.capture());
+
+        List<NormalizedPosition> published =
+                objectMapper.readValue(messageCaptor.getValue(), new TypeReference<>() {});
+        assertThat(published).containsExactly(first, second);
+    }
+
+    @Test
+    void savePositions_emptyList_doesNotPublish() {
+        store.savePositions(SESSION_KEY, List.of());
+
+        verify(redisTemplate, never()).convertAndSend(any(), any());
+        verify(redisTemplate, never()).opsForHash();
     }
 
     @Test
