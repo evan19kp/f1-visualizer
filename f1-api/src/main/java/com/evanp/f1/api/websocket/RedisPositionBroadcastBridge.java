@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -53,7 +54,7 @@ public class RedisPositionBroadcastBridge implements MessageListener {
 
     @Override
     public void onMessage(Message message, byte[] pattern) {
-        String channel = new String(message.getChannel());
+        String channel = new String(message.getChannel(), StandardCharsets.UTF_8);
         Optional<String> sessionKey = sessionKeyFromChannel(channel);
         if (sessionKey.isEmpty()) {
             log.warn("Ignoring pub/sub message on unexpected channel: {}", channel);
