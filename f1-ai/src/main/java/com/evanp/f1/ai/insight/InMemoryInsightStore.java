@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class InMemoryInsightStore implements InsightStore {
 
+    static final int MAX_INSIGHTS_PER_SESSION = 100;
+
     private final ConcurrentHashMap<Long, Deque<RaceInsight>> bySession = new ConcurrentHashMap<>();
 
     @Override
@@ -16,7 +18,12 @@ public class InMemoryInsightStore implements InsightStore {
         if (insight == null) {
             throw new IllegalArgumentException("insight must not be null");
         }
-        bySession.computeIfAbsent(sessionKey, ignored -> new ConcurrentLinkedDeque<>()).addFirst(insight);
+        Deque<RaceInsight> insights =
+                bySession.computeIfAbsent(sessionKey, ignored -> new ConcurrentLinkedDeque<>());
+        insights.addFirst(insight);
+        while (insights.size() > MAX_INSIGHTS_PER_SESSION) {
+            insights.pollLast();
+        }
     }
 
     @Override
