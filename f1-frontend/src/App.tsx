@@ -1,4 +1,9 @@
 import { useEffect } from 'react'
+import { CameraSelector } from './components/hud/CameraSelector'
+import { GapTower } from './components/hud/GapTower'
+import { HudLayout } from './components/hud/HudLayout'
+import { InsightFeed } from './components/hud/InsightFeed'
+import { TireWidget } from './components/hud/TireWidget'
 import { RaceCanvas } from './components/scene/RaceCanvas'
 import { DEFAULT_SESSION_KEY } from './config/session'
 import { useInitialPositions } from './hooks/useInitialPositions'
@@ -45,7 +50,13 @@ export default function App(): React.JSX.Element {
         </span>
       </header>
       <main className="flex flex-1 p-4">
-        <RaceCanvas />
+        <HudLayout
+          canvas={<RaceCanvas />}
+          left={<GapTower />}
+          topRight={<CameraSelector />}
+          bottomLeft={<TireWidget />}
+          bottomRight={<InsightFeed />}
+        />
       </main>
     </div>
   )

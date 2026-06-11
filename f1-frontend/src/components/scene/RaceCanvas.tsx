@@ -2,7 +2,7 @@ import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
 import { SCENE_COLORS } from '../../config/scene'
 import { Cars } from './Cars'
-import { OrbitCamera } from './OrbitCamera'
+import { CameraRig } from './CameraRig'
 import { TrackMesh } from './TrackMesh'
 
 export function RaceCanvas(): React.JSX.Element {
@@ -19,7 +19,7 @@ export function RaceCanvas(): React.JSX.Element {
         <Suspense fallback={null}>
           <TrackMesh />
           <Cars />
-          <OrbitCamera />
+          <CameraRig />
         </Suspense>
       </Canvas>
     </div>
