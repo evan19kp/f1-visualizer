@@ -37,6 +37,28 @@ class PositionControllerTest {
     }
 
     @Test
+    void getPositions_appliesLimitAndOffset() throws Exception {
+        NormalizedPosition first = new NormalizedPosition(1, SESSION_KEY, TIMESTAMP, 0.1, 0.2, 0.3);
+        NormalizedPosition second = new NormalizedPosition(44, SESSION_KEY, TIMESTAMP, 0.4, 0.5, 0.6);
+        NormalizedPosition third = new NormalizedPosition(63, SESSION_KEY, TIMESTAMP, 0.7, 0.8, 0.9);
+        when(positionStore.getAllPositions(SESSION_KEY)).thenReturn(List.of(first, second, third));
+
+        mockMvc.perform(get("/api/sessions/{sessionKey}/positions", SESSION_KEY)
+                        .param("limit", "1")
+                        .param("offset", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].driverNumber").value(44));
+    }
+
+    @Test
+    void getPositions_rejectsInvalidPagingParams() throws Exception {
+        mockMvc.perform(get("/api/sessions/{sessionKey}/positions", SESSION_KEY)
+                        .param("offset", "-1"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void getPositions_returnsJsonArray() throws Exception {
         NormalizedPosition position =
                 new NormalizedPosition(44, SESSION_KEY, TIMESTAMP, 0.1, 0.2, 0.3);
