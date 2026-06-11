@@ -9,7 +9,7 @@ import com.evanp.f1.ingestion.normalize.NormalizationResult;
 import com.evanp.f1.ingestion.openf1.OpenF1Client;
 import com.evanp.f1.ingestion.openf1.OpenF1LocationResponse;
 import com.evanp.f1.ingestion.openf1.OpenF1SessionResponse;
-import java.time.Duration;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -24,22 +24,24 @@ import org.springframework.stereotype.Component;
 public class IngestionService {
 
     private static final Logger log = LoggerFactory.getLogger(IngestionService.class);
-    private static final Duration POLL_WINDOW = Duration.ofMinutes(5);
 
     private final OpenF1Client openF1Client;
     private final CoordinateNormalizer coordinateNormalizer;
     private final PositionStore positionStore;
     private final IngestionProperties properties;
+    private final Clock clock;
 
     public IngestionService(
             OpenF1Client openF1Client,
             CoordinateNormalizer coordinateNormalizer,
             PositionStore positionStore,
-            IngestionProperties properties) {
+            IngestionProperties properties,
+            Clock clock) {
         this.openF1Client = openF1Client;
         this.coordinateNormalizer = coordinateNormalizer;
         this.positionStore = positionStore;
         this.properties = properties;
+        this.clock = clock;
     }
 
     public void pollOnce() {
@@ -94,8 +96,8 @@ public class IngestionService {
     }
 
     private Instant resolveUntil(Instant since) {
-        Instant now = Instant.now();
-        Instant windowEnd = since.plus(POLL_WINDOW);
+        Instant now = clock.instant();
+        Instant windowEnd = since.plus(IngestionConstants.POLL_WINDOW);
         return windowEnd.isBefore(now) ? windowEnd : now;
     }
 
