@@ -22,7 +22,7 @@ export async function login(username: string, password: string): Promise<string>
   return data.token
 }
 
-/** Dev-only auto-login with default credentials. */
+/** Dev-only auto-login when explicitly opted in via VITE_DEV_AUTOLOGIN. */
 export async function ensureDevAuth(): Promise<void> {
   if (!import.meta.env.DEV) {
     return
@@ -30,8 +30,19 @@ export async function ensureDevAuth(): Promise<void> {
   if (useRaceStore.getState().authToken) {
     return
   }
+  if (import.meta.env.VITE_DEV_AUTOLOGIN !== 'true') {
+    return
+  }
+  const username = import.meta.env.VITE_DEV_AUTH_USER
+  const password = import.meta.env.VITE_DEV_AUTH_PASS
+  if (!username || !password) {
+    console.warn(
+      'Dev auto-login enabled but VITE_DEV_AUTH_USER / VITE_DEV_AUTH_PASS are not set',
+    )
+    return
+  }
   try {
-    await login('admin', 'changeme')
+    await login(username, password)
   } catch (error) {
     console.warn('Dev auto-login failed:', error)
   }

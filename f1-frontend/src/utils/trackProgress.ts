@@ -6,9 +6,10 @@ export function trackAngle(position: Position): number {
 }
 
 export function angleGapToLeader(angle: number, leaderAngle: number): number {
-  let gap = leaderAngle - angle
+  const twoPi = Math.PI * 2
+  let gap = (leaderAngle - angle) % twoPi
   if (gap < 0) {
-    gap += Math.PI * 2
+    gap += twoPi
   }
   return gap
 }

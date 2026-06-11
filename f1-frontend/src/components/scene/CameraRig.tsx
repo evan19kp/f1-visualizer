@@ -55,7 +55,8 @@ export function CameraRig(): React.JSX.Element | null {
 
     if (cameraMode === 'follow') {
       const driverPosition =
-        selectedDriver != null ? positions.get(selectedDriver) : positions.values().next().value
+        (selectedDriver != null ? positions.get(selectedDriver) : undefined) ??
+        positions.values().next().value
       if (!driverPosition) {
         return
       }

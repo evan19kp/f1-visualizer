@@ -5,6 +5,11 @@ import { useRaceStore } from '../../store/raceStore'
 import type { RaceInsight } from '../../types/insight'
 
 const POLL_MS = 10_000
+const REQUEST_TIMEOUT_MS = 8_000
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
 
 export function InsightFeed(): React.JSX.Element {
   const sessionKey = useRaceStore((s) => s.sessionKey)
@@ -22,12 +27,22 @@ export function InsightFeed(): React.JSX.Element {
     }
 
     let cancelled = false
+    let activeController: AbortController | null = null
+    let requestTimeout: number | null = null
+    let pollTimeout: number | null = null
 
     async function fetchInsights(): Promise<void> {
+      const controller = new AbortController()
+      activeController = controller
+      requestTimeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
       try {
         const response = await fetch(
           `${API_URL}/api/sessions/${sessionKey}/insights?limit=5`,
-          { headers: { Authorization: `Bearer ${authToken}` } },
+          {
+            headers: { Authorization: `Bearer ${authToken}` },
+            signal: controller.signal,
+          },
         )
         if (!response.ok) {
           throw new Error(`Insights request failed: ${response.status}`)
@@ -38,17 +53,37 @@ export function InsightFeed(): React.JSX.Element {
           setError(null)
         }
       } catch (fetchError) {
-        if (!cancelled) {
-          setError(fetchError instanceof Error ? fetchError.message : 'Failed to load insights')
+        if (isAbortError(fetchError) || cancelled) {
+          return
         }
+        setError(fetchError instanceof Error ? fetchError.message : 'Failed to load insights')
+      } finally {
+        if (requestTimeout != null) {
+          window.clearTimeout(requestTimeout)
+          requestTimeout = null
+        }
+        activeController = null
       }
     }
 
-    void fetchInsights()
-    const interval = window.setInterval(() => void fetchInsights(), POLL_MS)
+    async function poll(): Promise<void> {
+      await fetchInsights()
+      if (!cancelled) {
+        pollTimeout = window.setTimeout(() => void poll(), POLL_MS)
+      }
+    }
+
+    void poll()
+
     return () => {
       cancelled = true
-      window.clearInterval(interval)
+      activeController?.abort()
+      if (requestTimeout != null) {
+        window.clearTimeout(requestTimeout)
+      }
+      if (pollTimeout != null) {
+        window.clearTimeout(pollTimeout)
+      }
     }
   }, [sessionKey, authToken])
 
