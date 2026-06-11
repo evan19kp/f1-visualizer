@@ -10,8 +10,15 @@ spring:
       ddl-auto: none
   flyway:
     enabled: false
+  security:
+    user:
+      name: admin
+      password: testpass
 
 app:
+  jwt:
+    secret: test-jwt-secret-at-least-32-characters
+    expiration-ms: 3600000
   ingestion:
     enabled: false
   ai:

@@ -5,14 +5,14 @@ import com.evanp.f1.ai.insight.InsightStore;
 import com.evanp.f1.ai.insight.RaceInsight;
 import com.evanp.f1.ai.openai.OpenAiClient;
 import com.evanp.f1.core.event.RaceEvent;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +24,10 @@ public class RaceEngineerService {
     private final OpenAiClient openAiClient;
     private final InsightStore insightStore;
     private final OpenAiProperties properties;
-    private final ConcurrentHashMap<Long, Instant> lastCallBySession = new ConcurrentHashMap<>();
+    private final Cache<Long, Instant> lastCallBySession = Caffeine.newBuilder()
+            .maximumSize(10_000)
+            .expireAfterWrite(Duration.ofHours(1))
+            .build();
 
     public RaceEngineerService(
             OpenAiClient openAiClient, InsightStore insightStore, OpenAiProperties properties) {
@@ -38,13 +41,14 @@ public class RaceEngineerService {
         long sessionKey = event.sessionKey();
         Instant now = Instant.now();
         AtomicBoolean allowed = new AtomicBoolean(false);
-        lastCallBySession.compute(sessionKey, (key, lastCall) -> {
-            if (lastCall != null
-                    && Duration.between(lastCall, now).getSeconds() < properties.rateLimitSeconds()) {
-                return lastCall;
+
+        lastCallBySession.asMap().compute(sessionKey, (key, lastCall) -> {
+            if (lastCall == null
+                    || Duration.between(lastCall, now).getSeconds() >= properties.rateLimitSeconds()) {
+                allowed.set(true);
+                return now;
             }
-            allowed.set(true);
-            return now;
+            return lastCall;
         });
 
         if (!allowed.get()) {
@@ -56,11 +60,5 @@ public class RaceEngineerService {
         commentary.ifPresent(text -> insightStore.save(
                 sessionKey,
                 new RaceInsight(sessionKey, event.timestamp(), event.type(), text)));
-    }
-
-    @Scheduled(fixedRate = 60_000)
-    void evictStaleRateLimitEntries() {
-        Instant cutoff = Instant.now().minusSeconds(properties.rateLimitSeconds());
-        lastCallBySession.entrySet().removeIf(entry -> entry.getValue().isBefore(cutoff));
     }
 }
