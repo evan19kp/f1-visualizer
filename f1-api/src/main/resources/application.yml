@@ -3,7 +3,7 @@ spring:
     name: f1-visualizer
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/f1}
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/f1}
     username: ${DB_USER:f1user}
     password: ${DB_PASSWORD:f1pass}
     driver-class-name: org.postgresql.Driver
