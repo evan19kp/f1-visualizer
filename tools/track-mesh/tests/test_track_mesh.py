@@ -48,6 +48,8 @@ class MeshTests(unittest.TestCase):
         ]
         with self.assertRaisesRegex(ValueError, "point_count must be > 0"):
             extract_centerline(samples, point_count=0)
+        with self.assertRaisesRegex(ValueError, "point_count must be > 0"):
+            extract_centerline(samples, point_count=-1)
 
     def test_export_glb_writes_binary(self) -> None:
         samples = [
