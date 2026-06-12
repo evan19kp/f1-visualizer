@@ -1,0 +1,18 @@
+# Production profile — secrets and origins come from environment variables only.
+
+spring:
+  jpa:
+    show-sql: false
+
+app:
+  ingestion:
+    enabled: ${INGESTION_ENABLED:false}
+  websocket:
+    allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS}
+  cors:
+    allowed-origins: ${APP_CORS_ORIGINS:}
+
+logging:
+  level:
+    com.evanp.f1: INFO
+    org.hibernate.SQL: WARN

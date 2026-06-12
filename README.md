@@ -168,6 +168,83 @@ The app defaults to port **5433**, not 5432. `docker-compose.yml` maps `5433:543
 
 `./mvnw verify` requires **Docker** — integration tests spin up ephemeral `postgres:16` and `redis:7-alpine` containers. Unit tests (`./mvnw test`) do not need Docker.
 
+## Production deployment
+
+Use the `prod` Spring profile for a VPS or single-host deploy. The API fails fast at startup if secrets or WebSocket origins are missing or still set to dev defaults.
+
+### Backend
+
+Set `SPRING_PROFILES_ACTIVE=prod` and provide managed Postgres + Redis (not the dev `docker-compose` defaults unless you change credentials). Example:
+
+```bash
+export SPRING_PROFILES_ACTIVE=prod
+
+export DB_URL=jdbc:postgresql://db.internal:5432/f1
+export DB_USER=f1user
+export DB_PASSWORD='<strong-db-password>'
+
+export REDIS_HOST=redis.internal
+export REDIS_PORT=6379
+
+export JWT_SECRET='<random-string-at-least-32-chars>'
+export ADMIN_USER=admin
+export ADMIN_PASSWORD='<strong-admin-password>'
+
+# Comma-separated browser origins that open the frontend (no localhost default in prod)
+export WEBSOCKET_ALLOWED_ORIGINS=https://f1.example.com
+
+# Only when the SPA is on a different origin than the API
+export APP_CORS_ORIGINS=https://f1.example.com
+
+# Ingestion is off by default in prod — opt in explicitly
+export INGESTION_ENABLED=true
+export OPENF1_SESSION_KEY=9161
+
+java -jar f1-api/target/f1-api-0.0.1-SNAPSHOT.jar
+```
+
+Build the JAR from the repo root: `./mvnw package -pl f1-api -am -DskipTests`.
+
+| Variable | Required in prod | Notes |
+|----------|------------------|-------|
+| `SPRING_PROFILES_ACTIVE` | yes | Must include `prod` |
+| `JWT_SECRET` | yes | ≥ 32 characters; must not contain `CHANGE_ME` |
+| `ADMIN_PASSWORD` | yes | Must not be `changeme` |
+| `WEBSOCKET_ALLOWED_ORIGINS` | yes | Comma-separated frontend URLs |
+| `DB_URL`, `DB_USER`, `DB_PASSWORD` | yes | Managed Postgres |
+| `REDIS_HOST`, `REDIS_PORT` | yes | Managed Redis |
+| `APP_CORS_ORIGINS` | if split origin | REST CORS when SPA and API differ |
+| `INGESTION_ENABLED` | no | Defaults to `false` in prod |
+| `OPENAI_API_KEY` | if `AI_ENABLED=true` | Validated only when AI is on |
+
+**Security notes:** CSRF remains enabled in prod. JWTs travel in the `Authorization` header (stateless SPA), so cookie-based CSRF is not a concern. CSRF is disabled only in non-prod profiles for easier local testing.
+
+Logging in prod: `com.evanp.f1` at INFO, Hibernate SQL at WARN (`application-prod.yml`).
+
+### Frontend
+
+Build with production API URLs (baked in at compile time):
+
+```bash
+cd f1-frontend
+export VITE_API_URL=https://api.example.com
+export VITE_WS_URL=https://api.example.com/ws
+export VITE_SESSION_KEY=9161
+npm ci
+npm run build
+```
+
+Serve `f1-frontend/dist/` with any static host (nginx, S3 + CloudFront, etc.). Do not enable `VITE_DEV_AUTOLOGIN` in production.
+
+### Reverse proxy (optional)
+
+A typical layout terminates TLS at nginx and proxies to the API on `:8080`:
+
+- `/api/**` and `/ws/**` → backend
+- `/` → static `dist/` files
+
+Ensure `WEBSOCKET_ALLOWED_ORIGINS` and `APP_CORS_ORIGINS` match the public site origin (scheme + host + port).
+
 ## Development plans
 
 Sprint plans and agent prompts live in [`.cursor/plans/`](.cursor/plans/).
