@@ -12,6 +12,7 @@ export function useInitialPositions(sessionKey: string): void {
     }
 
     const controller = new AbortController()
+    let active = true
 
     void (async () => {
       try {
@@ -19,7 +20,7 @@ export function useInitialPositions(sessionKey: string): void {
           signal: controller.signal,
         })
         const batch: Position[] = response.ok ? await response.json() : []
-        if (batch.length > 0) {
+        if (active && batch.length > 0) {
           updatePositions(batch)
         }
       } catch {
@@ -27,6 +28,9 @@ export function useInitialPositions(sessionKey: string): void {
       }
     })()
 
-    return () => controller.abort()
+    return () => {
+      active = false
+      controller.abort()
+    }
   }, [sessionKey, updatePositions])
 }
