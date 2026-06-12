@@ -7,9 +7,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class OpenF1Client {
@@ -40,6 +42,9 @@ public class OpenF1Client {
 
             return locations != null ? locations : List.of();
         } catch (RestClientException e) {
+            if (isNotFound(e)) {
+                return List.of();
+            }
             log.error("OpenF1 /location request failed for session {}: {}", sessionKey, e.getMessage());
             return List.of();
         }
@@ -60,6 +65,9 @@ public class OpenF1Client {
 
             return messages != null ? messages : List.of();
         } catch (RestClientException e) {
+            if (isNotFound(e)) {
+                return List.of();
+            }
             log.error("OpenF1 /race_control request failed for session {}: {}", sessionKey, e.getMessage());
             return List.of();
         }
@@ -80,8 +88,16 @@ public class OpenF1Client {
             }
             return Optional.of(sessions[0]);
         } catch (RestClientException e) {
+            if (isNotFound(e)) {
+                return Optional.empty();
+            }
             log.error("OpenF1 /sessions request failed for session {}: {}", sessionKey, e.getMessage());
             return Optional.empty();
         }
+    }
+
+    private static boolean isNotFound(RestClientException exception) {
+        return exception instanceof RestClientResponseException responseException
+                && responseException.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND);
     }
 }
