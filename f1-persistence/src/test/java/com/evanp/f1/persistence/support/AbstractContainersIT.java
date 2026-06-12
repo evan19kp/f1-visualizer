@@ -37,6 +37,9 @@ public abstract class AbstractContainersIT {
     }
 
     protected static void flushRedisDb(StringRedisTemplate redisTemplate) {
+        if (redisTemplate == null) {
+            return;
+        }
         var connectionFactory = redisTemplate.getConnectionFactory();
         if (connectionFactory == null) {
             return;
