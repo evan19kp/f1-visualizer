@@ -69,16 +69,18 @@ export function SessionPicker(): React.JSX.Element {
   const sessionOptions: RaceSession[] = hasSessions
     ? sessions.some((session) => String(session.sessionKey) === sessionKey)
       ? sessions
-      : [
-          {
-            sessionKey: Number(sessionKey),
-            meetingKey: 0,
-            sessionName: 'Custom key',
-            circuitName: '',
-            dateStart: '',
-          },
-          ...sessions,
-        ]
+      : isValidSessionKey(sessionKey)
+        ? [
+            {
+              sessionKey: Number(sessionKey),
+              meetingKey: 0,
+              sessionName: 'Custom key',
+              circuitName: '',
+              dateStart: '',
+            },
+            ...sessions,
+          ]
+        : sessions
     : []
 
   const applyKey = (key: string): void => {

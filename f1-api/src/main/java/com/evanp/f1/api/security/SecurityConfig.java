@@ -57,6 +57,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/sessions/*/bounds")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/sessions/*/track-asset")
+                        .permitAll()
                         .requestMatchers("/api/**")
                         .authenticated()
                         .anyRequest()
