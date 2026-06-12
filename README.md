@@ -82,7 +82,9 @@ Copy `.env.example` to `.env` at the repo root for a ready-made local profile (n
 | `AI_ENABLED` | `false` | Enables race-control poller + GPT insights |
 | `OPENAI_API_KEY` | — | Required when `AI_ENABLED=true` |
 | `JWT_SECRET` | dev placeholder | Required in production |
-| `AWS_REGION` / `S3_BUCKET` | `us-east-1` / `f1-visualizer-assets` | Track mesh assets (Sprint 7) |
+| `AWS_REGION` / `S3_BUCKET` | `us-east-1` / `f1-visualizer-assets` | Track mesh assets (optional) |
+| `AWS_ENDPOINT_URL` | — | LocalStack S3 (`http://localhost:4566`) |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | — | LocalStack: `test` / `test` |
 
 ### Frontend (`f1-frontend/.env`)
 
@@ -98,7 +100,7 @@ Copy `f1-frontend/.env.example` to `.env` and adjust as needed.
 
 ## AI & auth
 
-Most `/api/**` routes require JWT. Position reads (`GET /api/sessions/{key}/positions`) are public.
+Most `/api/**` routes require JWT. Public reads: `GET /api/sessions/{key}/positions` and `GET /api/sessions/{key}/track-asset` (404 → procedural track; see [assets/tracks/README.md](assets/tracks/README.md)).
 
 For local insight feed testing, enable dev auto-login in `f1-frontend/.env`:
 
@@ -160,9 +162,11 @@ The app defaults to port **5433**, not 5432. `docker-compose.yml` maps `5433:543
 ## Tests
 
 ```bash
-./mvnw test      # unit
-./mvnw verify    # unit + integration (Docker)
+./mvnw test      # unit tests only (*Test.java)
+./mvnw verify    # unit + integration (*IT.java via Testcontainers)
 ```
+
+`./mvnw verify` requires **Docker** — integration tests spin up ephemeral `postgres:16` and `redis:7-alpine` containers. Unit tests (`./mvnw test`) do not need Docker.
 
 ## Development plans
 
