@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { ConnectionBanner } from './components/hud/ConnectionBanner'
 import { CameraSelector } from './components/hud/CameraSelector'
 import { GapTower } from './components/hud/GapTower'
 import { HudLayout } from './components/hud/HudLayout'
@@ -38,7 +39,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <div className="flex h-screen flex-col">
-      <header className="flex items-center gap-6 border-b border-zinc-800 px-4 py-3">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-zinc-800 px-4 py-3 sm:gap-6">
         <h1 className="text-sm font-semibold tracking-wide text-f1red">F1 Visualizer</h1>
         <span className={`text-sm ${STATUS_COLOR[connectionStatus]}`}>
           {STATUS_LABEL[connectionStatus]}
@@ -48,7 +49,8 @@ export default function App(): React.JSX.Element {
           Drivers <span className="font-mono text-zinc-200">{positions.size}</span>
         </span>
       </header>
-      <main className="flex flex-1 p-4">
+      <ConnectionBanner />
+      <main className="flex min-h-0 flex-1 p-2 sm:p-4">
         <HudLayout
           canvas={<RaceCanvas />}
           left={<GapTower />}

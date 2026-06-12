@@ -40,7 +40,7 @@ export function GapTower(): React.JSX.Element {
   const ranked = useMemo(() => rankDrivers(positions), [positions])
 
   return (
-    <div className="w-44 rounded-lg border border-zinc-800 bg-zinc-950/85 p-2 backdrop-blur-sm">
+    <div className="w-full max-w-[11rem] rounded-lg border border-zinc-800 bg-zinc-950/85 p-2 backdrop-blur-sm">
       <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
         Gap Tower
       </h2>

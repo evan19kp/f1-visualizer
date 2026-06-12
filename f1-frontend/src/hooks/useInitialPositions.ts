@@ -3,8 +3,13 @@ import { API_URL } from '../config/session'
 import { useRaceStore } from '../store/raceStore'
 import type { Position } from '../types/position'
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
 export function useInitialPositions(sessionKey: string): void {
   const updatePositions = useRaceStore((s) => s.updatePositions)
+  const setPositionsFetchError = useRaceStore((s) => s.setPositionsFetchError)
 
   useEffect(() => {
     if (!sessionKey) {
@@ -19,12 +24,31 @@ export function useInitialPositions(sessionKey: string): void {
         const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/positions`, {
           signal: controller.signal,
         })
-        const batch: Position[] = response.ok ? await response.json() : []
-        if (active && batch.length > 0) {
+        if (!response.ok) {
+          if (active) {
+            setPositionsFetchError(
+              `Could not load positions for session ${sessionKey} (HTTP ${response.status})`,
+            )
+          }
+          return
+        }
+
+        const batch = (await response.json()) as Position[]
+        if (!active) {
+          return
+        }
+
+        setPositionsFetchError(null)
+        if (batch.length > 0) {
           updatePositions(batch)
         }
-      } catch {
-        /* REST bootstrap is best-effort; STOMP will stream live updates */
+      } catch (error) {
+        if (!active || isAbortError(error)) {
+          return
+        }
+        setPositionsFetchError(
+          error instanceof Error ? error.message : 'Failed to load initial positions',
+        )
       }
     })()
 
@@ -32,5 +56,5 @@ export function useInitialPositions(sessionKey: string): void {
       active = false
       controller.abort()
     }
-  }, [sessionKey, updatePositions])
+  }, [sessionKey, setPositionsFetchError, updatePositions])
 }
