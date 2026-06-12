@@ -34,7 +34,22 @@ class SecurityConfigTest {
 
     @Test
     void protectedApiRoute_returnsUnauthorizedWithoutToken() throws Exception {
-        mockMvc.perform(get("/api/sessions")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/sessions/9161/insights")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void publicSessionsListRoute_isPermittedWithoutAuth() throws Exception {
+        mockMvc.perform(get("/api/sessions")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void publicSessionMetadataRoute_isPermittedWithoutAuth() throws Exception {
+        mockMvc.perform(get("/api/sessions/9161")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void publicBoundsRoute_isPermittedWithoutAuth() throws Exception {
+        mockMvc.perform(get("/api/sessions/9161/bounds")).andExpect(status().isNotFound());
     }
 
     @Test
