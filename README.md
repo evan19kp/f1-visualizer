@@ -78,6 +78,7 @@ Copy `.env.example` to `.env` at the repo root for a ready-made local profile (n
 | `OPENF1_SESSION_KEY` | `latest` | OpenF1 session key (e.g. `9161`) |
 | `OPENF1_ACCESS_TOKEN` | — | Optional bearer token for authenticated OpenF1 REST access |
 | `OPENF1_USERNAME` / `OPENF1_PASSWORD` | — | Optional OpenF1 credentials; backend exchanges them for a bearer token |
+| `OPENF1_TOKEN_FAILURE_COOLDOWN_MS` | `30000` | Delay before retrying failed OpenF1 token requests |
 | `OPENF1_POLL_INTERVAL_MS` | `2500` | ~24 req/min; OpenF1 free tier caps at 30/min |
 | `SERVER_PORT` | `8080` | REST + STOMP endpoint |
 | `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / `changeme` | Dev login; pair with frontend dev auto-login |

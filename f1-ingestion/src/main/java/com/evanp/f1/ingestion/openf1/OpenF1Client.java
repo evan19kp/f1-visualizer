@@ -30,6 +30,7 @@ public class OpenF1Client {
     private final String username;
     private final String password;
     private final String tokenUrl;
+    private final long tokenFailureCooldownMs;
     private final Clock clock;
     private volatile CachedToken cachedToken = CachedToken.empty();
 
@@ -40,12 +41,14 @@ public class OpenF1Client {
             @Value("${app.openf1.username:}") String username,
             @Value("${app.openf1.password:}") String password,
             @Value("${app.openf1.token-url:https://api.openf1.org/token}") String tokenUrl,
+            @Value("${app.openf1.token-failure-cooldown-ms:30000}") long tokenFailureCooldownMs,
             Clock clock) {
         this.restClient = builder.baseUrl(baseUrl).build();
         this.configuredAccessToken = configuredAccessToken;
         this.username = username;
         this.password = password;
         this.tokenUrl = tokenUrl;
+        this.tokenFailureCooldownMs = tokenFailureCooldownMs;
         this.clock = clock;
     }
 
@@ -146,6 +149,9 @@ public class OpenF1Client {
         if (cachedToken.isValidAt(now)) {
             return cachedToken.value();
         }
+        if (cachedToken.isCoolingDownAt(now)) {
+            return "";
+        }
         Optional<CachedToken> freshToken = requestAccessToken(now);
         freshToken.ifPresent(token -> cachedToken = token);
         return freshToken.map(CachedToken::value).orElse("");
@@ -166,12 +172,14 @@ public class OpenF1Client {
                     .body(TokenResponse.class);
             if (response == null || !StringUtils.hasText(response.accessToken())) {
                 log.warn("OpenF1 token request succeeded without an access token");
+                cachedToken = CachedToken.failedUntil(now.plusMillis(tokenFailureCooldownMs));
                 return Optional.empty();
             }
             return Optional.of(new CachedToken(
                     response.accessToken(), now.plusSeconds(Math.max(1L, response.expiresInSeconds()))));
         } catch (RestClientException e) {
             log.error("OpenF1 token request failed: {}", e.getMessage());
+            cachedToken = CachedToken.failedUntil(now.plusMillis(tokenFailureCooldownMs));
             return Optional.empty();
         }
     }
@@ -188,6 +196,14 @@ public class OpenF1Client {
 
         private boolean isValidAt(Instant instant) {
             return StringUtils.hasText(value) && expiresAt.isAfter(instant.plusSeconds(60));
+        }
+
+        private static CachedToken failedUntil(Instant expiresAt) {
+            return new CachedToken("", expiresAt);
+        }
+
+        private boolean isCoolingDownAt(Instant instant) {
+            return !StringUtils.hasText(value) && expiresAt.isAfter(instant);
         }
     }
 

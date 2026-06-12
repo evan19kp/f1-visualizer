@@ -40,7 +40,7 @@ class OpenF1ClientTest {
     void setUp() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new OpenF1Client(builder, "http://localhost", "", "", "", "http://localhost/token", clock);
+        client = new OpenF1Client(builder, "http://localhost", "", "", "", "http://localhost/token", 30_000, clock);
     }
 
     @AfterEach
@@ -121,7 +121,8 @@ class OpenF1ClientTest {
     void fetchLocations_sendsConfiguredAccessToken() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new OpenF1Client(builder, "http://localhost", "static-token", "", "", "http://localhost/token", clock);
+        client = new OpenF1Client(
+                builder, "http://localhost", "static-token", "", "", "http://localhost/token", 30_000, clock);
 
         server.expect(requestTo("http://localhost/location?session_key=9161"))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer static-token"))
@@ -135,7 +136,14 @@ class OpenF1ClientTest {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
         client = new OpenF1Client(
-                builder, "http://localhost", "", "driver@example.com", "secret", "http://localhost/token", clock);
+                builder,
+                "http://localhost",
+                "",
+                "driver@example.com",
+                "secret",
+                "http://localhost/token",
+                30_000,
+                clock);
 
         server.expect(requestTo("http://localhost/token"))
                 .andExpect(method(HttpMethod.POST))
@@ -146,6 +154,32 @@ class OpenF1ClientTest {
                 .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
         server.expect(requestTo("http://localhost/race_control?session_key=9161"))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer oauth-token"))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+        assertTrue(client.fetchLocations("9161", Optional.empty(), Optional.empty()).isEmpty());
+        assertTrue(client.fetchRaceControl("9161", Optional.empty()).isEmpty());
+    }
+
+    @Test
+    void fetchLocations_skipsTokenRequestDuringFailureCooldown() {
+        RestClient.Builder builder = RestClient.builder();
+        server = MockRestServiceServer.bindTo(builder).build();
+        client = new OpenF1Client(
+                builder,
+                "http://localhost",
+                "",
+                "driver@example.com",
+                "secret",
+                "http://localhost/token",
+                30_000,
+                clock);
+
+        server.expect(requestTo("http://localhost/token"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withServerError());
+        server.expect(requestTo("http://localhost/location?session_key=9161"))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://localhost/race_control?session_key=9161"))
                 .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
 
         assertTrue(client.fetchLocations("9161", Optional.empty(), Optional.empty()).isEmpty());
