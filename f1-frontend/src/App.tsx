@@ -3,9 +3,10 @@ import { CameraSelector } from './components/hud/CameraSelector'
 import { GapTower } from './components/hud/GapTower'
 import { HudLayout } from './components/hud/HudLayout'
 import { InsightFeed } from './components/hud/InsightFeed'
+import { SessionPicker } from './components/hud/SessionPicker'
 import { TireWidget } from './components/hud/TireWidget'
 import { RaceCanvas } from './components/scene/RaceCanvas'
-import { DEFAULT_SESSION_KEY } from './config/session'
+import { resolveInitialSessionKey } from './config/session'
 import { useInitialPositions } from './hooks/useInitialPositions'
 import { useStompPositions } from './hooks/useStompPositions'
 import { useRaceStore } from './store/raceStore'
@@ -29,7 +30,7 @@ export default function App(): React.JSX.Element {
   const setSessionKey = useRaceStore((s) => s.setSessionKey)
 
   useEffect(() => {
-    setSessionKey(DEFAULT_SESSION_KEY)
+    setSessionKey(resolveInitialSessionKey())
   }, [setSessionKey])
 
   useStompPositions(sessionKey)
@@ -42,9 +43,7 @@ export default function App(): React.JSX.Element {
         <span className={`text-sm ${STATUS_COLOR[connectionStatus]}`}>
           {STATUS_LABEL[connectionStatus]}
         </span>
-        <span className="text-sm text-zinc-400">
-          Session <span className="font-mono text-zinc-200">{sessionKey || '—'}</span>
-        </span>
+        <SessionPicker />
         <span className="text-sm text-zinc-400">
           Drivers <span className="font-mono text-zinc-200">{positions.size}</span>
         </span>
