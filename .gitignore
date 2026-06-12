@@ -29,3 +29,8 @@ f1-frontend/.vite/
 # Logs
 *.log
 logs/
+
+# Track mesh generator output
+tools/track-mesh/out/
+tools/track-mesh/cache/
+tools/track-mesh/.venv/
