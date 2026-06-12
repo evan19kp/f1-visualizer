@@ -7,8 +7,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import org.mockito.ArgumentCaptor;
-
 import com.evanp.f1.core.position.NormalizedPosition;
 import com.evanp.f1.core.position.PositionStore;
 import com.evanp.f1.core.position.SessionBounds;
@@ -18,12 +16,15 @@ import com.evanp.f1.ingestion.normalize.NormalizationResult;
 import com.evanp.f1.ingestion.openf1.OpenF1Client;
 import com.evanp.f1.ingestion.openf1.OpenF1LocationResponse;
 import com.evanp.f1.ingestion.openf1.OpenF1SessionResponse;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -32,6 +33,8 @@ class IngestionServiceTest {
 
     private static final long SESSION_KEY = 9161L;
     private static final Instant TIMESTAMP = Instant.parse("2024-03-02T15:00:00Z");
+    private static final Instant NOW = Instant.parse("2024-03-02T16:00:00Z");
+    private static final Clock FIXED_CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
     @Mock
     private OpenF1Client openF1Client;
@@ -50,7 +53,8 @@ class IngestionServiceTest {
                 openF1Client,
                 coordinateNormalizer,
                 positionStore,
-                new IngestionProperties(true, String.valueOf(SESSION_KEY)));
+                new IngestionProperties(true, String.valueOf(SESSION_KEY)),
+                FIXED_CLOCK);
     }
 
     @Test
@@ -63,7 +67,8 @@ class IngestionServiceTest {
                 .thenReturn(Optional.of(new OpenF1SessionResponse(
                         SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP)));
         when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.empty());
-        when(openF1Client.fetchLocations(String.valueOf(SESSION_KEY), Optional.of(TIMESTAMP)))
+        when(openF1Client.fetchLocations(
+                        eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), any(Optional.class)))
                 .thenReturn(List.of(sample));
         when(positionStore.getBounds(SESSION_KEY)).thenReturn(Optional.empty());
         when(coordinateNormalizer.normalize(List.of(sample), SessionBounds.empty()))
@@ -74,13 +79,20 @@ class IngestionServiceTest {
         verify(positionStore).savePositions(SESSION_KEY, List.of(normalized));
         verify(positionStore).saveBounds(SESSION_KEY, updatedBounds);
         verify(positionStore).savePollCursor(SESSION_KEY, TIMESTAMP);
+
+        Optional<Instant> until = captureUntilArgument();
+        assertEquals(Optional.of(TIMESTAMP.plus(IngestionConstants.POLL_WINDOW)), until);
     }
 
     @Test
     void pollOnce_whenBoundsExpand_renormalizesExistingPositions() {
         CoordinateNormalizer realNormalizer = new CoordinateNormalizer();
         IngestionService service = new IngestionService(
-                openF1Client, realNormalizer, positionStore, new IngestionProperties(true, String.valueOf(SESSION_KEY)));
+                openF1Client,
+                realNormalizer,
+                positionStore,
+                new IngestionProperties(true, String.valueOf(SESSION_KEY)),
+                FIXED_CLOCK);
 
         Instant later = TIMESTAMP.plusSeconds(1);
         SessionBounds oldBounds = SessionBounds.empty().expand(0.0, 0.0, 0.0).expand(10.0, 0.0, 0.0);
@@ -89,7 +101,8 @@ class IngestionServiceTest {
                 new OpenF1LocationResponse(later, 2, 1219L, SESSION_KEY, 20.0, 0.0, 0.0);
 
         when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.of(TIMESTAMP));
-        when(openF1Client.fetchLocations(String.valueOf(SESSION_KEY), Optional.of(TIMESTAMP)))
+        when(openF1Client.fetchLocations(
+                        eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), any(Optional.class)))
                 .thenReturn(List.of(newSample));
         when(positionStore.getBounds(SESSION_KEY)).thenReturn(Optional.of(oldBounds));
         when(positionStore.getAllPositions(SESSION_KEY)).thenReturn(List.of(existing));
@@ -103,6 +116,9 @@ class IngestionServiceTest {
         assertEquals(2, saved.size());
         assertEquals(0.0, saved.stream().filter(p -> p.driverNumber() == 1).findFirst().orElseThrow().x());
         assertEquals(1.0, saved.stream().filter(p -> p.driverNumber() == 2).findFirst().orElseThrow().x());
+
+        Optional<Instant> until = captureUntilArgument();
+        assertEquals(Optional.of(TIMESTAMP.plus(IngestionConstants.POLL_WINDOW)), until);
     }
 
     @Test
@@ -111,13 +127,26 @@ class IngestionServiceTest {
                 .thenReturn(Optional.of(new OpenF1SessionResponse(
                         SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP)));
         when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.empty());
-        when(openF1Client.fetchLocations(String.valueOf(SESSION_KEY), Optional.of(TIMESTAMP)))
+        when(openF1Client.fetchLocations(
+                        eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), any(Optional.class)))
                 .thenReturn(List.of());
 
         ingestionService.pollOnce();
 
         verify(positionStore, never()).savePositions(eq(SESSION_KEY), any());
         verify(positionStore, never()).saveBounds(eq(SESSION_KEY), any());
-        verify(positionStore, never()).savePollCursor(eq(SESSION_KEY), any());
+
+        Optional<Instant> until = captureUntilArgument();
+        Instant expectedUntil = TIMESTAMP.plus(IngestionConstants.POLL_WINDOW);
+        assertEquals(Optional.of(expectedUntil), until);
+        verify(positionStore).savePollCursor(SESSION_KEY, expectedUntil);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Optional<Instant> captureUntilArgument() {
+        ArgumentCaptor<Optional<Instant>> untilCaptor = ArgumentCaptor.forClass(Optional.class);
+        verify(openF1Client)
+                .fetchLocations(eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), untilCaptor.capture());
+        return untilCaptor.getValue();
     }
 }

@@ -9,6 +9,7 @@ import com.evanp.f1.ingestion.normalize.NormalizationResult;
 import com.evanp.f1.ingestion.openf1.OpenF1Client;
 import com.evanp.f1.ingestion.openf1.OpenF1LocationResponse;
 import com.evanp.f1.ingestion.openf1.OpenF1SessionResponse;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -28,30 +29,38 @@ public class IngestionService {
     private final CoordinateNormalizer coordinateNormalizer;
     private final PositionStore positionStore;
     private final IngestionProperties properties;
+    private final Clock clock;
 
     public IngestionService(
             OpenF1Client openF1Client,
             CoordinateNormalizer coordinateNormalizer,
             PositionStore positionStore,
-            IngestionProperties properties) {
+            IngestionProperties properties,
+            Clock clock) {
         this.openF1Client = openF1Client;
         this.coordinateNormalizer = coordinateNormalizer;
         this.positionStore = positionStore;
         this.properties = properties;
+        this.clock = clock;
     }
 
     public void pollOnce() {
         try {
             String configKey = properties.sessionKey();
+            Optional<Instant> since = resolveSince(configKey);
+            Instant until = resolveUntil(since.orElse(Instant.EPOCH));
             List<OpenF1LocationResponse> samples =
-                    openF1Client.fetchLocations(configKey, resolveSince(configKey));
-            if (samples.isEmpty()) {
+                    openF1Client.fetchLocations(configKey, since, Optional.of(until));
+
+            long storeSessionKey = resolveStoreSessionKey(configKey, samples);
+            if (storeSessionKey < 0) {
                 return;
             }
 
-            long storeSessionKey = isNumericSessionKey(configKey)
-                    ? Long.parseLong(configKey)
-                    : samples.getFirst().sessionKey();
+            if (samples.isEmpty()) {
+                advanceCursorThroughEmptyWindow(storeSessionKey, since.orElse(Instant.EPOCH), until);
+                return;
+            }
 
             SessionBounds bounds = positionStore.getBounds(storeSessionKey).orElse(SessionBounds.empty());
             NormalizationResult result = coordinateNormalizer.normalize(samples, bounds);
@@ -84,6 +93,27 @@ public class IngestionService {
             merged.put(fresh.driverNumber(), fresh);
         }
         return new ArrayList<>(merged.values());
+    }
+
+    private Instant resolveUntil(Instant since) {
+        Instant now = clock.instant();
+        Instant windowEnd = since.plus(IngestionConstants.POLL_WINDOW);
+        return windowEnd.isBefore(now) ? windowEnd : now;
+    }
+
+    private void advanceCursorThroughEmptyWindow(long storeSessionKey, Instant since, Instant until) {
+        if (until.isAfter(since)) {
+            positionStore.savePollCursor(storeSessionKey, until);
+        }
+    }
+
+    private long resolveStoreSessionKey(String configKey, List<OpenF1LocationResponse> samples) {
+        if (!samples.isEmpty()) {
+            return isNumericSessionKey(configKey)
+                    ? Long.parseLong(configKey)
+                    : samples.getFirst().sessionKey();
+        }
+        return resolveCursorSessionKey(configKey);
     }
 
     private Optional<Instant> resolveSince(String configKey) {
