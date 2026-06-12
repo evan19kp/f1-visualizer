@@ -73,7 +73,7 @@ class OpenF1Client:
             window_end = min(window_start + POLL_WINDOW, end)
             params = {
                 "session_key": str(session_key),
-                "date>": _format_openf1_instant(window_start),
+                "date>=": _format_openf1_instant(window_start),
                 "date<": _format_openf1_instant(window_end),
             }
             chunk = self._get_json("/location", params)

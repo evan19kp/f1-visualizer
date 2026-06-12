@@ -77,7 +77,15 @@ def build_ribbon_mesh(
 def export_glb(mesh: RibbonMesh, output_path: Path) -> None:
     positions_bytes = struct.pack(f"<{len(mesh.positions)}f", *mesh.positions)
     normals_bytes = struct.pack(f"<{len(mesh.normals)}f", *mesh.normals)
-    indices_bytes = struct.pack(f"<{len(mesh.indices)}H", *mesh.indices)
+    max_index = max(mesh.indices) if mesh.indices else 0
+    if max_index > 0xFFFFFFFF:
+        raise ValueError(f"mesh index {max_index} exceeds UNSIGNED_INT limit")
+    if max_index > 0xFFFF:
+        indices_bytes = struct.pack(f"<{len(mesh.indices)}I", *mesh.indices)
+        index_component_type = 5125
+    else:
+        indices_bytes = struct.pack(f"<{len(mesh.indices)}H", *mesh.indices)
+        index_component_type = 5123
 
     buffer_bytes = positions_bytes + normals_bytes + indices_bytes
     positions_offset = 0
@@ -119,7 +127,7 @@ def export_glb(mesh: RibbonMesh, output_path: Path) -> None:
             },
             {
                 "bufferView": 2,
-                "componentType": 5123,
+                "componentType": index_component_type,
                 "count": index_count,
                 "type": "SCALAR",
             },

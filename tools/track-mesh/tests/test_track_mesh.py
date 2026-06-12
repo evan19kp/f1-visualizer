@@ -41,6 +41,14 @@ class NormalizeTests(unittest.TestCase):
 
 
 class MeshTests(unittest.TestCase):
+    def test_extract_centerline_rejects_non_positive_point_count(self) -> None:
+        samples = [
+            NormalizedSample(1, "t1", -1.0, 0.0, -1.0),
+            NormalizedSample(1, "t2", 1.0, 0.0, 1.0),
+        ]
+        with self.assertRaisesRegex(ValueError, "point_count must be > 0"):
+            extract_centerline(samples, point_count=0)
+
     def test_export_glb_writes_binary(self) -> None:
         samples = [
             NormalizedSample(1, "t1", -1.0, 0.0, -1.0),

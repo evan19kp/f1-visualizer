@@ -140,7 +140,7 @@ After generating the flat GLB:
 1. Import `bahrain.glb` in Blender.
 2. Use OpenF1 normalized y from `{circuit}.elevation.json` (or a height map) to sculpt elevation.
 3. Add cross-slope / banking by hand on the mesh or with a curve modifier.
-4. Re-export GLB **without changing x/z scale** — stay in normalized 0–1-style space ([-1, 1] on each axis).
+4. Re-export GLB **without changing x/z scale** — stay in normalized [-1, 1] space on each axis.
 5. Re-upload to `tracks/{circuit-slug}.glb` in S3.
 
 See also `assets/tracks/README.md` for S3 layout and coordinate notes.

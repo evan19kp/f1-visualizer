@@ -44,6 +44,9 @@ def extract_centerline(
       - angle (Option A): sort by atan2(z, x) around centroid — matches
         TrackMesh.tsx buildCenterLineVertices for a driver snapshot.
     """
+    if point_count <= 0:
+        raise ValueError("point_count must be > 0")
+
     if method == "polar_bin":
         return _centerline_by_polar_bins(samples, point_count=point_count)
     if method == "angle":
