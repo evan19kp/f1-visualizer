@@ -1,5 +1,5 @@
 import { useGLTF } from '@react-three/drei'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   BufferGeometry,
   Float32BufferAttribute,
@@ -108,6 +108,36 @@ function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
       rotation={[-Math.PI / 2, 0, 0]}
     />
   )
+}
+
+interface GlbTrackErrorBoundaryProps {
+  fallback: ReactNode
+  children: ReactNode
+}
+
+interface GlbTrackErrorBoundaryState {
+  hasError: boolean
+}
+
+class GlbTrackErrorBoundary extends Component<GlbTrackErrorBoundaryProps, GlbTrackErrorBoundaryState> {
+  state: GlbTrackErrorBoundaryState = { hasError: false }
+
+  static getDerivedStateFromError(): GlbTrackErrorBoundaryState {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error): void {
+    if (import.meta.env.DEV) {
+      console.warn('TrackMesh: GLB load failed, using procedural fallback', error)
+    }
+  }
+
+  render(): ReactNode {
+    if (this.state.hasError) {
+      return this.props.fallback
+    }
+    return this.props.children
+  }
 }
 
 function ProceduralTrackMesh({
@@ -293,7 +323,12 @@ export function TrackMesh(): React.JSX.Element {
   return (
     <group>
       {trackAssetUrl ? (
-        <GlbTrackMesh url={trackAssetUrl} />
+        <GlbTrackErrorBoundary
+          key={trackAssetUrl}
+          fallback={<ProceduralTrackMesh planeSize={planeSize} />}
+        >
+          <GlbTrackMesh url={trackAssetUrl} />
+        </GlbTrackErrorBoundary>
       ) : (
         <ProceduralTrackMesh planeSize={planeSize} />
       )}

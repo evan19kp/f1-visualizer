@@ -19,6 +19,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
@@ -60,6 +61,17 @@ class S3TrackAssetServiceTest {
     void getPresignedTrackUrl_returnsEmptyWhenObjectMissing() {
         when(s3Client.headObject(any(HeadObjectRequest.class)))
                 .thenThrow(NoSuchKeyException.builder().message("not found").build());
+
+        Optional<URL> result = service.getPresignedTrackUrl("bahrain");
+
+        assertThat(result).isEmpty();
+        verify(s3Presigner, never()).presignGetObject(any(GetObjectPresignRequest.class));
+    }
+
+    @Test
+    void getPresignedTrackUrl_returnsEmptyWhenHeadObjectReturns404() {
+        when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenThrow(S3Exception.builder().message("not found").statusCode(404).build());
 
         Optional<URL> result = service.getPresignedTrackUrl("bahrain");
 

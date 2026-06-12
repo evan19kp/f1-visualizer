@@ -50,7 +50,11 @@ public class IngestionService {
     public void pollOnce() {
         try {
             String configKey = properties.sessionKey();
-            sessionMetadataSync.syncIfNeeded(configKey);
+            try {
+                sessionMetadataSync.syncIfNeeded(configKey);
+            } catch (Exception e) {
+                log.warn("Session metadata sync failed for configKey={}: {}", configKey, e.getMessage(), e);
+            }
             Optional<Instant> since = resolveSince(configKey);
             Instant until = resolveUntil(since.orElse(Instant.EPOCH));
             List<OpenF1LocationResponse> samples =

@@ -1,5 +1,7 @@
 package com.evanp.f1.persistence.s3;
 
+import java.util.Locale;
+
 public final class CircuitSlug {
 
     private CircuitSlug() {}
@@ -9,7 +11,7 @@ public final class CircuitSlug {
             return "";
         }
         return circuitName
-                .toLowerCase()
+                .toLowerCase(Locale.ROOT)
                 .replaceAll("[^a-z0-9]+", "-")
                 .replaceAll("^-+|-+$", "");
     }

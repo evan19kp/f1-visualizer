@@ -6,6 +6,8 @@ import com.evanp.f1.persistence.session.RaceSessionEntity;
 import com.evanp.f1.persistence.session.RaceSessionRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Objects;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -28,11 +30,23 @@ public class SessionMetadataSync {
 
     private void upsert(OpenF1SessionResponse session) {
         Instant now = clock.instant();
-        RaceSessionEntity entity = raceSessionRepository
-                .findById(session.sessionKey())
-                .orElseGet(RaceSessionEntity::newInstance);
+        Optional<RaceSessionEntity> existing = raceSessionRepository.findById(session.sessionKey());
+        RaceSessionEntity entity = existing.orElseGet(RaceSessionEntity::newInstance);
+        boolean isNew = existing.isEmpty();
+        boolean createdAtSet = entity.getCreatedAt() == null;
 
-        if (entity.getCreatedAt() == null) {
+        boolean changed = isNew
+                || createdAtSet
+                || !Objects.equals(entity.getMeetingKey(), session.meetingKey())
+                || !Objects.equals(entity.getSessionName(), session.sessionName())
+                || !Objects.equals(entity.getCircuitName(), session.circuitShortName())
+                || !Objects.equals(entity.getDateStart(), session.dateStart());
+
+        if (!changed) {
+            return;
+        }
+
+        if (createdAtSet) {
             entity.setCreatedAt(now);
         }
         entity.setSessionKey(session.sessionKey());

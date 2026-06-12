@@ -7,11 +7,17 @@ import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @Configuration
 @EnableConfigurationProperties(S3Properties.class)
 public class S3ClientConfiguration {
+
+    private static final S3Configuration PRESIGNER_S3_CONFIGURATION = S3Configuration.builder()
+            .pathStyleAccessEnabled(true)
+            .checksumValidationEnabled(false)
+            .build();
 
     @Bean
     S3Client s3Client(S3Properties properties) {
@@ -23,8 +29,9 @@ public class S3ClientConfiguration {
 
     @Bean
     S3Presigner s3Presigner(S3Properties properties) {
-        S3Presigner.Builder builder =
-                S3Presigner.builder().region(Region.of(properties.region()));
+        S3Presigner.Builder builder = S3Presigner.builder()
+                .region(Region.of(properties.region()))
+                .serviceConfiguration(PRESIGNER_S3_CONFIGURATION);
         String endpoint = properties.endpoint();
         if (endpoint != null && !endpoint.isBlank()) {
             builder.endpointOverride(URI.create(endpoint));
