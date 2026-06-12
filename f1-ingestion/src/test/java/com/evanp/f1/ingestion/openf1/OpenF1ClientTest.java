@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
@@ -13,11 +15,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
@@ -28,12 +34,13 @@ class OpenF1ClientTest {
 
     private MockRestServiceServer server;
     private OpenF1Client client;
+    private final Clock clock = Clock.fixed(Instant.parse("2026-06-12T12:00:00Z"), ZoneOffset.UTC);
 
     @BeforeEach
     void setUp() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new OpenF1Client(builder, "http://localhost");
+        client = new OpenF1Client(builder, "http://localhost", "", "", "", "http://localhost/token", clock);
     }
 
     @AfterEach
@@ -108,6 +115,41 @@ class OpenF1ClientTest {
 
         assertTrue(client.fetchLocations("9161", Optional.empty(), Optional.empty()).isEmpty());
         assertFalse(output.getAll().contains("OpenF1 /location request failed"));
+    }
+
+    @Test
+    void fetchLocations_sendsConfiguredAccessToken() {
+        RestClient.Builder builder = RestClient.builder();
+        server = MockRestServiceServer.bindTo(builder).build();
+        client = new OpenF1Client(builder, "http://localhost", "static-token", "", "", "http://localhost/token", clock);
+
+        server.expect(requestTo("http://localhost/location?session_key=9161"))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer static-token"))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+        assertTrue(client.fetchLocations("9161", Optional.empty(), Optional.empty()).isEmpty());
+    }
+
+    @Test
+    void fetchLocations_fetchesAndCachesOAuthToken() {
+        RestClient.Builder builder = RestClient.builder();
+        server = MockRestServiceServer.bindTo(builder).build();
+        client = new OpenF1Client(
+                builder, "http://localhost", "", "driver@example.com", "secret", "http://localhost/token", clock);
+
+        server.expect(requestTo("http://localhost/token"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(
+                        "{\"access_token\":\"oauth-token\",\"expires_in\":\"3600\"}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://localhost/location?session_key=9161"))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer oauth-token"))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://localhost/race_control?session_key=9161"))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer oauth-token"))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+        assertTrue(client.fetchLocations("9161", Optional.empty(), Optional.empty()).isEmpty());
+        assertTrue(client.fetchRaceControl("9161", Optional.empty()).isEmpty());
     }
 
     @Test

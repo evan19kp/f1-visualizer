@@ -76,6 +76,8 @@ Copy `.env.example` to `.env` at the repo root for a ready-made local profile (n
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | |
 | `INGESTION_ENABLED` | `false` | Set `true` to poll OpenF1 |
 | `OPENF1_SESSION_KEY` | `latest` | OpenF1 session key (e.g. `9161`) |
+| `OPENF1_ACCESS_TOKEN` | — | Optional bearer token for authenticated OpenF1 REST access |
+| `OPENF1_USERNAME` / `OPENF1_PASSWORD` | — | Optional OpenF1 credentials; backend exchanges them for a bearer token |
 | `OPENF1_POLL_INTERVAL_MS` | `2500` | ~24 req/min; OpenF1 free tier caps at 30/min |
 | `SERVER_PORT` | `8080` | REST + STOMP endpoint |
 | `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / `changeme` | Dev login; pair with frontend dev auto-login |
@@ -199,6 +201,9 @@ export APP_CORS_ORIGINS=https://f1.example.com
 # Ingestion is off by default in prod — opt in explicitly
 export INGESTION_ENABLED=true
 export OPENF1_SESSION_KEY=9161
+# Optional during live sessions when OpenF1 requires authenticated access
+export OPENF1_USERNAME='<openf1-account-email>'
+export OPENF1_PASSWORD='<openf1-account-password>'
 
 java -jar f1-api/target/f1-api-0.0.1-SNAPSHOT.jar
 ```
@@ -215,6 +220,7 @@ Build the JAR from the repo root: `./mvnw package -pl f1-api -am -DskipTests`.
 | `REDIS_HOST`, `REDIS_PORT` | yes | Managed Redis |
 | `APP_CORS_ORIGINS` | if split origin | REST CORS when SPA and API differ |
 | `INGESTION_ENABLED` | no | Defaults to `false` in prod |
+| `OPENF1_ACCESS_TOKEN` or `OPENF1_USERNAME` / `OPENF1_PASSWORD` | if OpenF1 requires auth | Needed for live-session REST access |
 | `OPENAI_API_KEY` | if `AI_ENABLED=true` | Validated only when AI is on |
 
 **Security notes:** CSRF remains enabled in prod. JWTs travel in the `Authorization` header (stateless SPA), so cookie-based CSRF is not a concern. CSRF is disabled only in non-prod profiles for easier local testing.
