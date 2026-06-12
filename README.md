@@ -171,6 +171,13 @@ The app defaults to port **5433**, not 5432. `docker-compose.yml` maps `5433:543
 
 `./mvnw verify` requires **Docker** — integration tests spin up ephemeral `postgres:16` and `redis:7-alpine` containers. Unit tests (`./mvnw test`) do not need Docker.
 
+### CI
+
+Pull requests and pushes to `main` run [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+- **Backend:** `./mvnw verify` (Java 21; Testcontainers uses the runner Docker daemon)
+- **Frontend:** `npm ci`, `npm run build`, and `npm run type-check` in `f1-frontend/`
+
 ## Production deployment
 
 Use the `prod` Spring profile for a VPS or single-host deploy. The API fails fast at startup if secrets or WebSocket origins are missing or still set to dev defaults.
