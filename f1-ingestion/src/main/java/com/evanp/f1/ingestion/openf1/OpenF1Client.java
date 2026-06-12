@@ -106,6 +106,30 @@ public class OpenF1Client {
         }
     }
 
+    public List<OpenF1StintResponse> fetchStints(String sessionKey, @SuppressWarnings("unused") Optional<Instant> since) {
+        try {
+            RestClient.RequestHeadersSpec<?> request = restClient
+                    .get()
+                    .uri(uriBuilder -> {
+                        uriBuilder.path("/stints").queryParam("session_key", sessionKey);
+                        return uriBuilder.build();
+                    });
+
+            List<OpenF1StintResponse> stints =
+                    authorize(request)
+                            .retrieve()
+                            .body(new ParameterizedTypeReference<>() {});
+
+            return stints != null ? stints : List.of();
+        } catch (RestClientException e) {
+            if (isNotFound(e)) {
+                return List.of();
+            }
+            log.error("OpenF1 /stints request failed for session {}: {}", sessionKey, e.getMessage());
+            return List.of();
+        }
+    }
+
     public Optional<OpenF1SessionResponse> fetchSession(String sessionKey) {
         try {
             RestClient.RequestHeadersSpec<?> request = restClient

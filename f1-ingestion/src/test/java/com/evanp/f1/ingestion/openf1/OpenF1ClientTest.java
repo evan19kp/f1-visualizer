@@ -276,4 +276,53 @@ class OpenF1ClientTest {
         assertTrue(client.fetchSession("9161").isEmpty());
         assertFalse(output.getAll().contains("OpenF1 /sessions request failed"));
     }
+
+    @Test
+    void fetchStints_returnsParsedResponses() {
+        String body =
+                """
+                [
+                  {
+                    "compound": "SOFT",
+                    "driver_number": 44,
+                    "lap_end": 20,
+                    "lap_start": 1,
+                    "meeting_key": 1219,
+                    "session_key": 9161,
+                    "stint_number": 1,
+                    "tyre_age_at_start": 0
+                  }
+                ]
+                """;
+
+        server.expect(requestTo("http://localhost/stints?session_key=9161"))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        List<OpenF1StintResponse> stints = client.fetchStints("9161", Optional.empty());
+
+        assertEquals(1, stints.size());
+        assertEquals("SOFT", stints.getFirst().compound());
+        assertEquals(44, stints.getFirst().driverNumber());
+        assertEquals(9161L, stints.getFirst().sessionKey());
+        assertEquals(1, stints.getFirst().stintNumber());
+    }
+
+    @Test
+    void fetchStints_onServerError_returnsEmptyList() {
+        server.expect(requestTo("http://localhost/stints?session_key=9161"))
+                .andRespond(withServerError());
+
+        assertTrue(client.fetchStints("9161", Optional.empty()).isEmpty());
+    }
+
+    @Test
+    void fetchStints_onNotFound_returnsEmptyListWithoutErrorLog(CapturedOutput output) {
+        server.expect(requestTo("http://localhost/stints?session_key=9161"))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"detail\":\"No results found.\"}"));
+
+        assertTrue(client.fetchStints("9161", Optional.empty()).isEmpty());
+        assertFalse(output.getAll().contains("OpenF1 /stints request failed"));
+    }
 }
