@@ -48,7 +48,8 @@ app:
     rate-limit-seconds: 30
   openf1:
     base-url: ${OPENF1_BASE_URL:https://api.openf1.org/v1}
-    poll-interval-ms: ${OPENF1_POLL_INTERVAL_MS:1000}
+    # OpenF1 free tier allows max 30 requests/minute; 2500ms (~24/min) stays under the cap.
+    poll-interval-ms: ${OPENF1_POLL_INTERVAL_MS:2500}
   ingestion:
     enabled: ${INGESTION_ENABLED:false}
     session-key: ${OPENF1_SESSION_KEY:latest}
