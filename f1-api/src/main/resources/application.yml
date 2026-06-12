@@ -48,6 +48,11 @@ app:
     rate-limit-seconds: 30
   openf1:
     base-url: ${OPENF1_BASE_URL:https://api.openf1.org/v1}
+    token-url: ${OPENF1_TOKEN_URL:https://api.openf1.org/token}
+    access-token: ${OPENF1_ACCESS_TOKEN:}
+    username: ${OPENF1_USERNAME:}
+    password: ${OPENF1_PASSWORD:}
+    token-failure-cooldown-ms: ${OPENF1_TOKEN_FAILURE_COOLDOWN_MS:30000}
     # OpenF1 free tier allows max 30 requests/minute; 2500ms (~24/min) stays under the cap.
     poll-interval-ms: ${OPENF1_POLL_INTERVAL_MS:2500}
   ingestion:
