@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.evanp.f1.persistence.support.AbstractContainersIT;
 import com.evanp.f1.persistence.support.PersistenceIntegrationTestApplication;
+import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,9 @@ class RaceSessionRepositoryIT extends AbstractContainersIT {
     @Autowired
     private RaceSessionRepository repository;
 
+    @Autowired
+    private EntityManager entityManager;
+
     @Test
     void saveAndFindById_persistsThroughFlywaySchema() {
         Instant now = Instant.parse("2024-03-02T15:00:00Z");
@@ -31,6 +35,7 @@ class RaceSessionRepositoryIT extends AbstractContainersIT {
         entity.setCreatedAt(now);
 
         repository.saveAndFlush(entity);
+        entityManager.clear();
 
         assertThat(repository.findById(9161L))
                 .isPresent()
