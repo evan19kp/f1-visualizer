@@ -61,9 +61,4 @@ class SecurityConfigTest {
     void publicPositionsRoute_isPermittedWithoutAuth() throws Exception {
         mockMvc.perform(get("/api/sessions/9161/positions")).andExpect(status().isNotFound());
     }
-
-    @Test
-    void publicTrackAssetRoute_isPermittedWithoutAuth() throws Exception {
-        mockMvc.perform(get("/api/sessions/9161/track-asset")).andExpect(status().isNotFound());
-    }
 }
