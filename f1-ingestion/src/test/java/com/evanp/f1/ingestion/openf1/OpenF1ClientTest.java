@@ -1,6 +1,7 @@
 package com.evanp.f1.ingestion.openf1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -9,6 +10,10 @@ import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -16,7 +21,9 @@ import org.springframework.web.client.RestClient;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
+@ExtendWith(OutputCaptureExtension.class)
 class OpenF1ClientTest {
 
     private MockRestServiceServer server;
@@ -93,6 +100,17 @@ class OpenF1ClientTest {
     }
 
     @Test
+    void fetchLocations_onNotFound_returnsEmptyListWithoutErrorLog(CapturedOutput output) {
+        server.expect(requestTo("http://localhost/location?session_key=9161"))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"detail\":\"No results found.\"}"));
+
+        assertTrue(client.fetchLocations("9161", Optional.empty(), Optional.empty()).isEmpty());
+        assertFalse(output.getAll().contains("OpenF1 /location request failed"));
+    }
+
+    @Test
     void fetchRaceControl_returnsParsedResponses() {
         String body =
                 """
@@ -137,6 +155,17 @@ class OpenF1ClientTest {
     }
 
     @Test
+    void fetchRaceControl_onNotFound_returnsEmptyListWithoutErrorLog(CapturedOutput output) {
+        server.expect(requestTo("http://localhost/race_control?session_key=9161"))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"detail\":\"No results found.\"}"));
+
+        assertTrue(client.fetchRaceControl("9161", Optional.empty()).isEmpty());
+        assertFalse(output.getAll().contains("OpenF1 /race_control request failed"));
+    }
+
+    @Test
     void fetchSession_returnsFirstResult() {
         String body =
                 """
@@ -159,5 +188,16 @@ class OpenF1ClientTest {
         assertTrue(session.isPresent());
         assertEquals(9161L, session.get().sessionKey());
         assertEquals("Race", session.get().sessionName());
+    }
+
+    @Test
+    void fetchSession_onNotFound_returnsEmptyWithoutErrorLog(CapturedOutput output) {
+        server.expect(requestTo("http://localhost/sessions?session_key=9161"))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"detail\":\"No results found.\"}"));
+
+        assertTrue(client.fetchSession("9161").isEmpty());
+        assertFalse(output.getAll().contains("OpenF1 /sessions request failed"));
     }
 }
