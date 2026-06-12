@@ -1,3 +1,4 @@
+import { useGLTF } from '@react-three/drei'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BufferGeometry,
@@ -25,6 +26,11 @@ interface SessionBounds {
   maxZ: number
 }
 
+interface TrackAssetResponse {
+  url: string
+  circuitSlug: string
+}
+
 function isSessionBounds(value: unknown): value is SessionBounds {
   if (!value || typeof value !== 'object') {
     return false
@@ -33,6 +39,14 @@ function isSessionBounds(value: unknown): value is SessionBounds {
   return ['minX', 'maxX', 'minY', 'maxY', 'minZ', 'maxZ'].every(
     (key) => typeof bounds[key] === 'number' && Number.isFinite(bounds[key] as number),
   )
+}
+
+function isTrackAssetResponse(value: unknown): value is TrackAssetResponse {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+  const payload = value as Record<string, unknown>
+  return typeof payload.url === 'string' && typeof payload.circuitSlug === 'string'
 }
 
 function buildCenterLineVertices(drivers: Position[]): Float32Array | null {
@@ -83,10 +97,37 @@ function updateCenterLineGeometry(geometry: BufferGeometry, vertices: Float32Arr
   geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3))
 }
 
+function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
+  const { scene } = useGLTF(url)
+  const clonedScene = useMemo(() => scene.clone(), [scene])
+
+  return (
+    <primitive
+      object={clonedScene}
+      scale={[TRACK_SCALE, TRACK_SCALE, TRACK_SCALE]}
+      rotation={[-Math.PI / 2, 0, 0]}
+    />
+  )
+}
+
+function ProceduralTrackMesh({
+  planeSize,
+}: {
+  planeSize: { width: number; depth: number }
+}): React.JSX.Element {
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+      <planeGeometry args={[planeSize.width, planeSize.depth]} />
+      <meshStandardMaterial color={SCENE_COLORS.trackPlane} />
+    </mesh>
+  )
+}
+
 export function TrackMesh(): React.JSX.Element {
   const sessionKey = useRaceStore((state) => state.sessionKey)
   const positions = useRaceStore((state) => state.positions)
   const [bounds, setBounds] = useState<SessionBounds | null>(null)
+  const [trackAssetUrl, setTrackAssetUrl] = useState<string | null>(null)
 
   const centerLine = useMemo(
     () =>
@@ -107,6 +148,56 @@ export function TrackMesh(): React.JSX.Element {
       ;(centerLine.material as LineBasicMaterial).dispose()
     }
   }, [centerLine])
+
+  useEffect(() => {
+    if (!sessionKey) {
+      setTrackAssetUrl(null)
+      return
+    }
+
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/track-asset`, {
+          signal: controller.signal,
+        })
+        if (response.status === 404) {
+          setTrackAssetUrl(null)
+          return
+        }
+        if (!response.ok) {
+          if (import.meta.env.DEV) {
+            console.warn(
+              `TrackMesh: track-asset request failed (${response.status}) for session ${sessionKey}`,
+            )
+          }
+          setTrackAssetUrl(null)
+          return
+        }
+
+        const payload: unknown = await response.json()
+        if (isTrackAssetResponse(payload)) {
+          setTrackAssetUrl(payload.url)
+          return
+        }
+
+        if (import.meta.env.DEV) {
+          console.error(`TrackMesh: invalid track-asset payload for session ${sessionKey}`, payload)
+        }
+        setTrackAssetUrl(null)
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return
+        }
+        if (import.meta.env.DEV) {
+          console.error(`TrackMesh: failed to fetch track-asset for session ${sessionKey}`, error)
+        }
+        setTrackAssetUrl(null)
+      }
+    })()
+
+    return () => controller.abort()
+  }, [sessionKey])
 
   useEffect(() => {
     if (!sessionKey) {
@@ -201,10 +292,11 @@ export function TrackMesh(): React.JSX.Element {
 
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[planeSize.width, planeSize.depth]} />
-        <meshStandardMaterial color={SCENE_COLORS.trackPlane} />
-      </mesh>
+      {trackAssetUrl ? (
+        <GlbTrackMesh url={trackAssetUrl} />
+      ) : (
+        <ProceduralTrackMesh planeSize={planeSize} />
+      )}
       <primitive object={centerLine} />
     </group>
   )

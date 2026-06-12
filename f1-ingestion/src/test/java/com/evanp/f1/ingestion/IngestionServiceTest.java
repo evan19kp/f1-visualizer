@@ -16,6 +16,8 @@ import com.evanp.f1.ingestion.normalize.NormalizationResult;
 import com.evanp.f1.ingestion.openf1.OpenF1Client;
 import com.evanp.f1.ingestion.openf1.OpenF1LocationResponse;
 import com.evanp.f1.ingestion.openf1.OpenF1SessionResponse;
+import com.evanp.f1.persistence.session.RaceSessionEntity;
+import com.evanp.f1.persistence.session.RaceSessionRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -45,16 +47,22 @@ class IngestionServiceTest {
     @Mock
     private PositionStore positionStore;
 
+    @Mock
+    private RaceSessionRepository raceSessionRepository;
+
     private IngestionService ingestionService;
+    private SessionMetadataSync sessionMetadataSync;
 
     @BeforeEach
     void setUp() {
+        sessionMetadataSync = new SessionMetadataSync(openF1Client, raceSessionRepository, FIXED_CLOCK);
         ingestionService = new IngestionService(
                 openF1Client,
                 coordinateNormalizer,
                 positionStore,
                 new IngestionProperties(true, String.valueOf(SESSION_KEY)),
-                FIXED_CLOCK);
+                FIXED_CLOCK,
+                sessionMetadataSync);
     }
 
     @Test
@@ -66,6 +74,7 @@ class IngestionServiceTest {
         when(openF1Client.fetchSession(String.valueOf(SESSION_KEY)))
                 .thenReturn(Optional.of(new OpenF1SessionResponse(
                         SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP)));
+        when(raceSessionRepository.findById(SESSION_KEY)).thenReturn(Optional.empty());
         when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.empty());
         when(openF1Client.fetchLocations(
                         eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), any(Optional.class)))
@@ -75,6 +84,16 @@ class IngestionServiceTest {
                 .thenReturn(new NormalizationResult(List.of(normalized), updatedBounds));
 
         ingestionService.pollOnce();
+
+        ArgumentCaptor<RaceSessionEntity> sessionCaptor = ArgumentCaptor.forClass(RaceSessionEntity.class);
+        verify(raceSessionRepository).save(sessionCaptor.capture());
+        RaceSessionEntity savedSession = sessionCaptor.getValue();
+        assertEquals(SESSION_KEY, savedSession.getSessionKey());
+        assertEquals(1219L, savedSession.getMeetingKey());
+        assertEquals("Race", savedSession.getSessionName());
+        assertEquals("Bahrain", savedSession.getCircuitName());
+        assertEquals(TIMESTAMP, savedSession.getDateStart());
+        assertEquals(NOW, savedSession.getCreatedAt());
 
         verify(positionStore).savePositions(SESSION_KEY, List.of(normalized));
         verify(positionStore).saveBounds(SESSION_KEY, updatedBounds);
@@ -87,12 +106,14 @@ class IngestionServiceTest {
     @Test
     void pollOnce_whenBoundsExpand_renormalizesExistingPositions() {
         CoordinateNormalizer realNormalizer = new CoordinateNormalizer();
+        when(raceSessionRepository.findById(SESSION_KEY)).thenReturn(Optional.empty());
         IngestionService service = new IngestionService(
                 openF1Client,
                 realNormalizer,
                 positionStore,
                 new IngestionProperties(true, String.valueOf(SESSION_KEY)),
-                FIXED_CLOCK);
+                FIXED_CLOCK,
+                sessionMetadataSync);
 
         Instant later = TIMESTAMP.plusSeconds(1);
         SessionBounds oldBounds = SessionBounds.empty().expand(0.0, 0.0, 0.0).expand(10.0, 0.0, 0.0);
@@ -100,6 +121,9 @@ class IngestionServiceTest {
         OpenF1LocationResponse newSample =
                 new OpenF1LocationResponse(later, 2, 1219L, SESSION_KEY, 20.0, 0.0, 0.0);
 
+        when(openF1Client.fetchSession(String.valueOf(SESSION_KEY)))
+                .thenReturn(Optional.of(new OpenF1SessionResponse(
+                        SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP)));
         when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.of(TIMESTAMP));
         when(openF1Client.fetchLocations(
                         eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), any(Optional.class)))
@@ -126,6 +150,7 @@ class IngestionServiceTest {
         when(openF1Client.fetchSession(String.valueOf(SESSION_KEY)))
                 .thenReturn(Optional.of(new OpenF1SessionResponse(
                         SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP)));
+        when(raceSessionRepository.findById(SESSION_KEY)).thenReturn(Optional.empty());
         when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.empty());
         when(openF1Client.fetchLocations(
                         eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), any(Optional.class)))

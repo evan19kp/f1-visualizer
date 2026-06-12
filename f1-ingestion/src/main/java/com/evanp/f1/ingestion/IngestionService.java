@@ -30,23 +30,27 @@ public class IngestionService {
     private final PositionStore positionStore;
     private final IngestionProperties properties;
     private final Clock clock;
+    private final SessionMetadataSync sessionMetadataSync;
 
     public IngestionService(
             OpenF1Client openF1Client,
             CoordinateNormalizer coordinateNormalizer,
             PositionStore positionStore,
             IngestionProperties properties,
-            Clock clock) {
+            Clock clock,
+            SessionMetadataSync sessionMetadataSync) {
         this.openF1Client = openF1Client;
         this.coordinateNormalizer = coordinateNormalizer;
         this.positionStore = positionStore;
         this.properties = properties;
         this.clock = clock;
+        this.sessionMetadataSync = sessionMetadataSync;
     }
 
     public void pollOnce() {
         try {
             String configKey = properties.sessionKey();
+            sessionMetadataSync.syncIfNeeded(configKey);
             Optional<Instant> since = resolveSince(configKey);
             Instant until = resolveUntil(since.orElse(Instant.EPOCH));
             List<OpenF1LocationResponse> samples =
