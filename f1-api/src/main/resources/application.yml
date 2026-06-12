@@ -61,6 +61,7 @@ app:
   s3:
     bucket: ${S3_BUCKET:f1-visualizer-assets}
     region: ${AWS_REGION:us-east-1}
+    endpoint: ${AWS_ENDPOINT_URL:}
   websocket:
     allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8080}
   cors:

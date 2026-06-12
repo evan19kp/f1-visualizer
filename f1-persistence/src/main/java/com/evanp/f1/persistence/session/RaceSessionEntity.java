@@ -31,6 +31,10 @@ public class RaceSessionEntity {
 
     protected RaceSessionEntity() {}
 
+    public static RaceSessionEntity newInstance() {
+        return new RaceSessionEntity();
+    }
+
     public Long getSessionKey() {
         return sessionKey;
     }
