@@ -103,7 +103,7 @@ Copy `f1-frontend/.env.example` to `.env` and adjust as needed.
 
 ## AI & auth
 
-Most `/api/**` routes require JWT. Public reads: `GET /api/sessions/{key}/positions` and `GET /api/sessions/{key}/track-asset` (404 → procedural track; see [assets/tracks/README.md](assets/tracks/README.md)).
+Most `/api/**` routes require JWT. Public reads: `GET /api/sessions`, `GET /api/sessions/{key}`, `GET /api/sessions/{key}/positions`, `GET /api/sessions/{key}/bounds`, and `GET /api/sessions/{key}/track-asset` (404 → procedural track; see [assets/tracks/README.md](assets/tracks/README.md)).
 
 For local insight feed testing, enable dev auto-login in `f1-frontend/.env`:
 

@@ -16,7 +16,7 @@ export function EmptyTrackOverlay(): React.JSX.Element | null {
         <ul className="mt-2 space-y-1 text-left text-xs leading-relaxed text-zinc-400">
           <li>Set INGESTION_ENABLED=true when starting the API</li>
           <li>Confirm session key {sessionKey || '—'} matches OpenF1 data</li>
-          <li>Ingestion polls about every 30s — give it a cycle after startup</li>
+          <li>Ingestion polls every few seconds — data should appear within ~10s of startup</li>
         </ul>
       </div>
     </div>
