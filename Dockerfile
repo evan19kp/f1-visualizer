@@ -24,10 +24,12 @@ RUN ./mvnw package -pl f1-api -am -DskipTests -B
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
+ARG JAR_FILE=f1-api-0.0.1-SNAPSHOT.jar
+
 RUN addgroup -S f1 && adduser -S f1 -G f1
 USER f1
 
-COPY --from=build /workspace/f1-api/target/f1-api-*.jar /app/app.jar
+COPY --from=build /workspace/f1-api/target/${JAR_FILE} /app/app.jar
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/app.jar"]

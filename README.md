@@ -155,7 +155,7 @@ curl -s http://localhost:8080/actuator/health
 
 `/actuator/health` is public; other actuator endpoints require authentication. Health details are hidden in prod.
 
-With `SPRING_PROFILES_ACTIVE=prod`, AI race-engineer insights are stored in Redis (`app.insights.store=redis`), so commentary survives API restarts and works with multiple API instances sharing one Redis.
+With `SPRING_PROFILES_ACTIVE=prod`, AI race-engineer insights are stored in Redis (`app.insights.store=redis`, env: `INSIGHTS_STORE=redis`), so commentary survives API restarts and works with multiple API instances sharing one Redis.
 
 Frontend production build: `npm run build` in `f1-frontend/`, then serve `dist/` with nginx or any static host (no separate frontend Dockerfile).
 

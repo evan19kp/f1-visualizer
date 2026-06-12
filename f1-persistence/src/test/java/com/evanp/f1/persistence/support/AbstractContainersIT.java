@@ -1,5 +1,7 @@
 package com.evanp.f1.persistence.support;
 
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -32,5 +34,21 @@ public abstract class AbstractContainersIT {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> String.valueOf(REDIS.getMappedPort(6379)));
+    }
+
+    protected static void flushRedisDb(StringRedisTemplate redisTemplate) {
+        var connectionFactory = redisTemplate.getConnectionFactory();
+        if (connectionFactory == null) {
+            return;
+        }
+        try (var connection = connectionFactory.getConnection()) {
+            connection.serverCommands().flushDb();
+        }
+    }
+
+    protected static void destroyRedisResources(LettuceConnectionFactory connectionFactory) {
+        if (connectionFactory != null) {
+            connectionFactory.destroy();
+        }
     }
 }

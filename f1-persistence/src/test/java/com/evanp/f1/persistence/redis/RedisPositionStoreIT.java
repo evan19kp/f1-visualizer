@@ -20,13 +20,13 @@ class RedisPositionStoreIT extends AbstractContainersIT {
 
     private static final long SESSION_KEY = 9161L;
 
+    private LettuceConnectionFactory connectionFactory;
     private StringRedisTemplate redisTemplate;
     private RedisPositionStore store;
 
     @BeforeEach
     void setUp() {
-        LettuceConnectionFactory connectionFactory =
-                new LettuceConnectionFactory(REDIS.getHost(), REDIS.getMappedPort(6379));
+        connectionFactory = new LettuceConnectionFactory(REDIS.getHost(), REDIS.getMappedPort(6379));
         connectionFactory.afterPropertiesSet();
         redisTemplate = new StringRedisTemplate(connectionFactory);
         redisTemplate.afterPropertiesSet();
@@ -35,12 +35,13 @@ class RedisPositionStoreIT extends AbstractContainersIT {
                         .registerModule(new JavaTimeModule())
                         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         store = new RedisPositionStore(redisTemplate, objectMapper);
-        flushRedis();
+        flushRedisDb(redisTemplate);
     }
 
     @AfterEach
     void tearDown() {
-        flushRedis();
+        flushRedisDb(redisTemplate);
+        destroyRedisResources(connectionFactory);
     }
 
     @Test
@@ -71,9 +72,5 @@ class RedisPositionStoreIT extends AbstractContainersIT {
         store.savePollCursor(SESSION_KEY, cursor);
 
         assertThat(store.getPollCursor(SESSION_KEY)).contains(cursor);
-    }
-
-    private void flushRedis() {
-        redisTemplate.getConnectionFactory().getConnection().serverCommands().flushAll();
     }
 }

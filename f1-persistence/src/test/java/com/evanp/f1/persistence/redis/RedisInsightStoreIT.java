@@ -22,13 +22,13 @@ class RedisInsightStoreIT extends AbstractContainersIT {
 
     private static final long SESSION_KEY = 9161L;
 
+    private LettuceConnectionFactory connectionFactory;
     private StringRedisTemplate redisTemplate;
     private RedisInsightStore store;
 
     @BeforeEach
     void setUp() {
-        LettuceConnectionFactory connectionFactory =
-                new LettuceConnectionFactory(REDIS.getHost(), REDIS.getMappedPort(6379));
+        connectionFactory = new LettuceConnectionFactory(REDIS.getHost(), REDIS.getMappedPort(6379));
         connectionFactory.afterPropertiesSet();
         redisTemplate = new StringRedisTemplate(connectionFactory);
         redisTemplate.afterPropertiesSet();
@@ -37,12 +37,13 @@ class RedisInsightStoreIT extends AbstractContainersIT {
                         .registerModule(new JavaTimeModule())
                         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         store = new RedisInsightStore(redisTemplate, objectMapper);
-        flushRedis();
+        flushRedisDb(redisTemplate);
     }
 
     @AfterEach
     void tearDown() {
-        flushRedis();
+        flushRedisDb(redisTemplate);
+        destroyRedisResources(connectionFactory);
     }
 
     @Test
@@ -71,9 +72,5 @@ class RedisInsightStoreIT extends AbstractContainersIT {
         List<RaceInsight> recent = store.getRecent(SESSION_KEY, InsightStore.MAX_INSIGHTS_PER_SESSION + 10);
         assertThat(recent).hasSize(InsightStore.MAX_INSIGHTS_PER_SESSION);
         assertThat(recent.getFirst()).isEqualTo(saved.getLast());
-    }
-
-    private void flushRedis() {
-        redisTemplate.getConnectionFactory().getConnection().serverCommands().flushAll();
     }
 }
