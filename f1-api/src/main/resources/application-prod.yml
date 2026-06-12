@@ -4,9 +4,22 @@ spring:
   jpa:
     show-sql: false
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+    info:
+      enabled: false
+
 app:
   ingestion:
     enabled: ${INGESTION_ENABLED:false}
+  insights:
+    store: redis
   websocket:
     allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS}
   cors:

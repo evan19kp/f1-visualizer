@@ -20,6 +20,10 @@
             <groupId>com.evanp</groupId>
             <artifactId>f1-core</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.evanp</groupId>
+            <artifactId>f1-ai</artifactId>
+        </dependency>
 
         <!-- JPA + Hibernate -->
         <dependency>

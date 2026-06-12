@@ -39,6 +39,32 @@ services:
     volumes:
       - localstack_data:/var/lib/localstack
 
+  api:
+    profiles: ["api"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/f1
+      DB_USER: f1user
+      DB_PASSWORD: f1pass
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: docker-local-jwt-secret-min-32-chars
+      ADMIN_USER: admin
+      ADMIN_PASSWORD: docker-local-admin-pass
+      WEBSOCKET_ALLOWED_ORIGINS: http://localhost:5173
+      INGESTION_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   localstack_data:

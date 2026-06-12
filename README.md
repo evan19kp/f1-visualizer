@@ -83,6 +83,7 @@ Copy `.env.example` to `.env` at the repo root for a ready-made local profile (n
 | `SERVER_PORT` | `8080` | REST + STOMP endpoint |
 | `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / `changeme` | Dev login; pair with frontend dev auto-login |
 | `AI_ENABLED` | `false` | Enables race-control poller + GPT insights |
+| `INSIGHTS_STORE` | `memory` | `redis` in prod profile — persists AI commentary across API restarts |
 | `OPENAI_API_KEY` | — | Required when `AI_ENABLED=true` |
 | `JWT_SECRET` | dev placeholder | Required in production |
 | `AWS_REGION` / `S3_BUCKET` | `us-east-1` / `f1-visualizer-assets` | Track mesh assets (optional) |
@@ -114,6 +115,49 @@ VITE_DEV_AUTH_PASS=changeme
 ```
 
 Default admin credentials match `application.yml` (`ADMIN_USER` / `ADMIN_PASSWORD`).
+
+**Production:** `VITE_DEV_AUTOLOGIN` is for local development only. Production frontends must use the real login flow (`POST /api/auth/login`) and send the JWT on protected `/api/**` routes. Do not bake dev auto-login into production builds.
+
+## Docker
+
+Build the API image from the repository root:
+
+```bash
+docker build -t f1-api:local -f Dockerfile .
+```
+
+Run infrastructure (Postgres, Redis, LocalStack):
+
+```bash
+docker compose up -d
+```
+
+Run the API container against that stack (prod profile uses the Redis insight store):
+
+```bash
+docker compose --profile api up -d --build
+# or: docker run --rm -p 8080:8080 --network f1-visualizer_default \
+#   -e SPRING_PROFILES_ACTIVE=prod \
+#   -e DB_URL=jdbc:postgresql://postgres:5432/f1 \
+#   -e DB_USER=f1user -e DB_PASSWORD=f1pass \
+#   -e REDIS_HOST=redis -e REDIS_PORT=6379 \
+#   -e JWT_SECRET='<random-string-at-least-32-chars>' \
+#   -e ADMIN_USER=admin -e ADMIN_PASSWORD='<strong-admin-password>' \
+#   -e WEBSOCKET_ALLOWED_ORIGINS=http://localhost:5173 \
+#   f1-api:local
+```
+
+Check health (Postgres + Redis must be reachable):
+
+```bash
+curl -s http://localhost:8080/actuator/health
+```
+
+`/actuator/health` is public; other actuator endpoints require authentication. Health details are hidden in prod.
+
+With `SPRING_PROFILES_ACTIVE=prod`, AI race-engineer insights are stored in Redis (`app.insights.store=redis`), so commentary survives API restarts and works with multiple API instances sharing one Redis.
+
+Frontend production build: `npm run build` in `f1-frontend/`, then serve `dist/` with nginx or any static host (no separate frontend Dockerfile).
 
 ## Modules
 
@@ -196,6 +240,10 @@ export DB_PASSWORD='<strong-db-password>'
 export REDIS_HOST=redis.internal
 export REDIS_PORT=6379
 
+# Prod profile stores AI insights in Redis (survives restarts / multi-instance)
+# Override with INSIGHTS_STORE=memory only for debugging
+export INSIGHTS_STORE=redis
+
 export JWT_SECRET='<random-string-at-least-32-chars>'
 export ADMIN_USER=admin
 export ADMIN_PASSWORD='<strong-admin-password>'
@@ -225,7 +273,8 @@ Build the JAR from the repo root: `./mvnw package -pl f1-api -am -DskipTests`.
 | `ADMIN_PASSWORD` | yes | Must not be `changeme` |
 | `WEBSOCKET_ALLOWED_ORIGINS` | yes | Comma-separated frontend URLs |
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` | yes | Managed Postgres |
-| `REDIS_HOST`, `REDIS_PORT` | yes | Managed Redis |
+| `REDIS_HOST`, `REDIS_PORT` | yes | Managed Redis; AI insights persist here in prod |
+| `INSIGHTS_STORE` | no | Defaults to `redis` in prod (`memory` in dev) |
 | `APP_CORS_ORIGINS` | if split origin | REST CORS when SPA and API differ |
 | `INGESTION_ENABLED` | no | Defaults to `false` in prod |
 | `OPENF1_ACCESS_TOKEN` or `OPENF1_USERNAME` / `OPENF1_PASSWORD` | if OpenF1 requires auth | Needed for live-session REST access |
@@ -248,7 +297,7 @@ npm ci
 npm run build
 ```
 
-Serve `f1-frontend/dist/` with any static host (nginx, S3 + CloudFront, etc.). Do not enable `VITE_DEV_AUTOLOGIN` in production.
+Serve `f1-frontend/dist/` with any static host (nginx, S3 + CloudFront, etc.). **Do not** set `VITE_DEV_AUTOLOGIN=true` in production — use the login API and JWT instead (see [AI & auth](#ai--auth)).
 
 ### Reverse proxy (optional)
 

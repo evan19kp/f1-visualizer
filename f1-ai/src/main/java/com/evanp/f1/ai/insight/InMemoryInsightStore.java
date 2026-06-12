@@ -4,12 +4,12 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(name = "app.insights.store", havingValue = "memory", matchIfMissing = true)
 public class InMemoryInsightStore implements InsightStore {
-
-    static final int MAX_INSIGHTS_PER_SESSION = 100;
 
     private final ConcurrentHashMap<Long, Deque<RaceInsight>> bySession = new ConcurrentHashMap<>();
 
@@ -21,7 +21,7 @@ public class InMemoryInsightStore implements InsightStore {
         Deque<RaceInsight> insights =
                 bySession.computeIfAbsent(sessionKey, ignored -> new ConcurrentLinkedDeque<>());
         insights.addFirst(insight);
-        while (insights.size() > MAX_INSIGHTS_PER_SESSION) {
+        while (insights.size() > InsightStore.MAX_INSIGHTS_PER_SESSION) {
             insights.pollLast();
         }
     }
