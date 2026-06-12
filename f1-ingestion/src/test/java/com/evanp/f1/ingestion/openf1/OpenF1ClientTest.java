@@ -155,6 +155,17 @@ class OpenF1ClientTest {
     }
 
     @Test
+    void fetchRaceControl_onNotFound_returnsEmptyListWithoutErrorLog(CapturedOutput output) {
+        server.expect(requestTo("http://localhost/race_control?session_key=9161"))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"detail\":\"No results found.\"}"));
+
+        assertTrue(client.fetchRaceControl("9161", Optional.empty()).isEmpty());
+        assertFalse(output.getAll().contains("OpenF1 /race_control request failed"));
+    }
+
+    @Test
     void fetchSession_returnsFirstResult() {
         String body =
                 """
@@ -177,5 +188,16 @@ class OpenF1ClientTest {
         assertTrue(session.isPresent());
         assertEquals(9161L, session.get().sessionKey());
         assertEquals("Race", session.get().sessionName());
+    }
+
+    @Test
+    void fetchSession_onNotFound_returnsEmptyWithoutErrorLog(CapturedOutput output) {
+        server.expect(requestTo("http://localhost/sessions?session_key=9161"))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"detail\":\"No results found.\"}"));
+
+        assertTrue(client.fetchSession("9161").isEmpty());
+        assertFalse(output.getAll().contains("OpenF1 /sessions request failed"));
     }
 }
