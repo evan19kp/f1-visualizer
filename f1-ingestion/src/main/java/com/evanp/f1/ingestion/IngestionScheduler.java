@@ -9,13 +9,16 @@ import org.springframework.stereotype.Component;
 public class IngestionScheduler {
 
     private final IngestionService ingestionService;
+    private final StintIngestionService stintIngestionService;
 
-    public IngestionScheduler(IngestionService ingestionService) {
+    public IngestionScheduler(IngestionService ingestionService, StintIngestionService stintIngestionService) {
         this.ingestionService = ingestionService;
+        this.stintIngestionService = stintIngestionService;
     }
 
     @Scheduled(fixedDelayString = "${app.openf1.poll-interval-ms}")
     public void tick() {
         ingestionService.pollOnce();
+        stintIngestionService.pollOnce();
     }
 }
