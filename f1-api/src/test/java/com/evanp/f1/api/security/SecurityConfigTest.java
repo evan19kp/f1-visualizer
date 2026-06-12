@@ -38,6 +38,16 @@ class SecurityConfigTest {
     }
 
     @Test
+    void actuatorHealth_isPermittedWithoutAuth() throws Exception {
+        mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
+    }
+
+    @Test
+    void actuatorInfo_requiresAuthentication() throws Exception {
+        mockMvc.perform(get("/actuator/info")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void publicSessionsListRoute_isPermittedWithoutAuth() throws Exception {
         mockMvc.perform(get("/api/sessions")).andExpect(status().isNotFound());
     }

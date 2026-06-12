@@ -15,12 +15,21 @@ spring:
       name: admin
       password: testpass
 
+management:
+  health:
+    redis:
+      enabled: false
+    db:
+      enabled: false
+
 app:
   jwt:
     secret: test-jwt-secret-at-least-32-characters
     expiration-ms: 3600000
   ingestion:
     enabled: false
+  insights:
+    store: memory
   ai:
     enabled: false
   openai:

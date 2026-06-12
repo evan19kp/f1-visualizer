@@ -39,6 +39,34 @@ services:
     volumes:
       - localstack_data:/var/lib/localstack
 
+  api:
+    profiles: ["api"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # WARNING: production-like local testing only — SPRING_PROFILES_ACTIVE=prod enables prod validators.
+      # JWT_SECRET, ADMIN_PASSWORD, WEBSOCKET_ALLOWED_ORIGINS, and INGESTION_ENABLED below are intentionally weak/local.
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/f1
+      DB_USER: f1user
+      DB_PASSWORD: f1pass
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: docker-local-jwt-secret-min-32-chars # DO NOT USE IN PRODUCTION — weak placeholder for local development only
+      ADMIN_USER: admin
+      ADMIN_PASSWORD: docker-local-admin-pass # DO NOT USE IN PRODUCTION — replace with a strong secret or inject via env
+      WEBSOCKET_ALLOWED_ORIGINS: http://localhost:5173
+      INGESTION_ENABLED: "false" # Disabled by default to avoid unsolicited OpenF1 polling; set to "true" + OpenF1 credentials to enable (see README)
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   localstack_data:

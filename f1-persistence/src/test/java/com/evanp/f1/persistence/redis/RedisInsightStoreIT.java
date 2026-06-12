@@ -2,13 +2,15 @@ package com.evanp.f1.persistence.redis;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.evanp.f1.core.position.NormalizedPosition;
-import com.evanp.f1.core.position.SessionBounds;
+import com.evanp.f1.ai.insight.InsightStore;
+import com.evanp.f1.ai.insight.RaceInsight;
+import com.evanp.f1.core.event.RaceEventType;
 import com.evanp.f1.persistence.support.AbstractContainersIT;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,13 +18,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
-class RedisPositionStoreIT extends AbstractContainersIT {
+class RedisInsightStoreIT extends AbstractContainersIT {
 
     private static final long SESSION_KEY = 9161L;
 
     private LettuceConnectionFactory connectionFactory;
     private StringRedisTemplate redisTemplate;
-    private RedisPositionStore store;
+    private RedisInsightStore store;
 
     @BeforeEach
     void setUp() {
@@ -34,7 +36,7 @@ class RedisPositionStoreIT extends AbstractContainersIT {
                 new ObjectMapper()
                         .registerModule(new JavaTimeModule())
                         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        store = new RedisPositionStore(redisTemplate, objectMapper);
+        store = new RedisInsightStore(redisTemplate, objectMapper);
         flushRedisDb(redisTemplate);
     }
 
@@ -45,32 +47,30 @@ class RedisPositionStoreIT extends AbstractContainersIT {
     }
 
     @Test
-    void savePositions_roundTripsThroughRealRedis() {
-        Instant timestamp = Instant.parse("2024-03-02T15:00:00Z");
-        NormalizedPosition position =
-                new NormalizedPosition(44, SESSION_KEY, timestamp, 1.2, 3.4, 5.6);
+    void saveAndGetRecent_roundTripsThroughRealRedis() {
+        RaceInsight insight =
+                new RaceInsight(SESSION_KEY, Instant.parse("2024-03-02T15:00:00Z"), RaceEventType.OVERTAKE, "P3 passes P4");
 
-        store.savePositions(SESSION_KEY, List.of(position));
+        store.save(SESSION_KEY, insight);
 
-        assertThat(store.getLatest(SESSION_KEY, 44)).contains(position);
-        assertThat(store.getAllPositions(SESSION_KEY)).containsExactly(position);
+        assertThat(store.getRecent(SESSION_KEY, 10)).containsExactly(insight);
     }
 
     @Test
-    void saveBounds_roundTripsThroughRealRedis() {
-        SessionBounds bounds = SessionBounds.empty().expand(1.0, 2.0, 3.0);
+    void save_capsListLengthAtMaxPerSession() {
+        List<RaceInsight> saved = new ArrayList<>(InsightStore.MAX_INSIGHTS_PER_SESSION + 5);
+        for (int i = 0; i < InsightStore.MAX_INSIGHTS_PER_SESSION + 5; i++) {
+            RaceInsight insight = new RaceInsight(
+                    SESSION_KEY,
+                    Instant.parse("2024-03-02T15:00:00Z").plusSeconds(i),
+                    RaceEventType.PIT_WINDOW,
+                    "Insight " + i);
+            store.save(SESSION_KEY, insight);
+            saved.add(insight);
+        }
 
-        store.saveBounds(SESSION_KEY, bounds);
-
-        assertThat(store.getBounds(SESSION_KEY)).contains(bounds);
-    }
-
-    @Test
-    void savePollCursor_roundTripsIso8601String() {
-        Instant cursor = Instant.parse("2024-03-02T15:00:02Z");
-
-        store.savePollCursor(SESSION_KEY, cursor);
-
-        assertThat(store.getPollCursor(SESSION_KEY)).contains(cursor);
+        List<RaceInsight> recent = store.getRecent(SESSION_KEY, InsightStore.MAX_INSIGHTS_PER_SESSION + 10);
+        assertThat(recent).hasSize(InsightStore.MAX_INSIGHTS_PER_SESSION);
+        assertThat(recent.getFirst()).isEqualTo(saved.getLast());
     }
 }
