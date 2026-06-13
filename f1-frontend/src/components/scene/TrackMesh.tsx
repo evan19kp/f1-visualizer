@@ -85,19 +85,35 @@ function updateCenterLineGeometry(geometry: BufferGeometry, vertices: Float32Arr
 function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
   const loadUrl = useMemo(() => resolveTrackAssetUrl(url), [url])
   const { scene } = useGLTF(loadUrl)
+  const trackMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: SCENE_COLORS.trackPlane,
+        side: DoubleSide,
+      }),
+    [scene],
+  )
   const clonedScene = useMemo(() => {
     const clone = scene.clone()
     clone.traverse((object) => {
       if (!(object instanceof Mesh)) {
         return
       }
-      object.material = new MeshStandardMaterial({
-        color: SCENE_COLORS.trackPlane,
-        side: DoubleSide,
-      })
+      object.material = trackMaterial
     })
     return clone
-  }, [scene])
+  }, [scene, trackMaterial])
+
+  useEffect(() => {
+    return () => {
+      trackMaterial.dispose()
+      clonedScene.traverse((object) => {
+        if (object instanceof Mesh) {
+          object.geometry.dispose()
+        }
+      })
+    }
+  }, [clonedScene, trackMaterial])
 
   return (
     <primitive

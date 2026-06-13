@@ -55,6 +55,8 @@ def extract_centerline(
 
         if method == "reference_lap":
             lap_samples = _pick_reference_lap(driver_samples)
+            if len(lap_samples) >= len(driver_samples):
+                return _centerline_by_polar_bins(samples, point_count=point_count)
             points = [
                 CenterlinePoint(x=sample.x, y=0.0, z=sample.z, elevation_y=sample.y)
                 for sample in lap_samples
