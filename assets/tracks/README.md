@@ -85,7 +85,7 @@ Run the API with the same endpoint and credentials (`AWS_ENDPOINT_URL`, `AWS_ACC
 ## Production upload
 
 ```bash
-aws s3 cp ./bahrain.glb s3://f1-visualizer-assets/tracks/bahrain.glb
+aws s3 cp tools/track-mesh/out/bahrain.glb s3://f1-visualizer-assets/tracks/bahrain.glb
 ```
 
 Use IAM credentials via the default AWS provider chain (env vars, instance profile, etc.). Set `AWS_REGION` and `S3_BUCKET` on the API; do not set `AWS_ENDPOINT_URL`.
