@@ -206,6 +206,26 @@ Normal when a time window has no location data. The API treats this as an empty 
 
 The app defaults to port **5433**, not 5432. `docker-compose.yml` maps `5433:5432` so a local Postgres on 5432 does not collide. Use the default `DB_URL` or `jdbc:postgresql://localhost:5433/f1`.
 
+### Track mesh misaligned
+
+Cars drift off the GLB ribbon or the mesh sits in the wrong place:
+
+- Regenerate with [`tools/track-mesh/generate.sh`](tools/track-mesh/generate.sh) using the **same session key** as ingestion (`OPENF1_SESSION_KEY` / `VITE_SESSION_KEY`).
+- Bounds must match ingestion — the generator normalizes over all drivers in that session; a different session or partial sample set shifts x/z.
+- Confirm the S3 slug matches `race_sessions.circuit_name` (e.g. `Bahrain` → `tracks/bahrain.glb`).
+- Re-upload and hard-refresh the frontend. See [assets/tracks/README.md](assets/tracks/README.md) and [tools/track-mesh/README.md](tools/track-mesh/README.md).
+
+### No track mesh (procedural fallback)
+
+The app shows a flat procedural track instead of a GLB:
+
+- `GET /api/sessions/{key}/track-asset` returns **404** when there is no `race_sessions` row, `circuit_name` is blank, or the S3 object is missing.
+- Check the object exists: `s3://f1-visualizer-assets/tracks/{circuit-slug}.glb`.
+- **LocalStack:** API needs `AWS_ENDPOINT_URL=http://localhost:4566` and `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` = `test`.
+- **Session row:** run ingestion once with `INGESTION_ENABLED=true` so OpenF1 metadata populates `race_sessions`.
+
+Upload workflow: [assets/tracks/README.md](assets/tracks/README.md). Generate meshes: [tools/track-mesh/README.md](tools/track-mesh/README.md).
+
 ## Tests
 
 ```bash

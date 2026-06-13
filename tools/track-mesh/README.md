@@ -112,6 +112,15 @@ Dev check in the app:
 2. Run API + frontend with session `9161`.
 3. Cars should sit on the ribbon in **x/z** (elevation may differ until Blender pass).
 
+## Pre-upload checklist
+
+Before uploading to S3 (LocalStack or production):
+
+- [ ] **Session key matches ingestion** — same value as `OPENF1_SESSION_KEY` and `VITE_SESSION_KEY`
+- [ ] **`circuit_name` → slug matches S3 key** — e.g. `Bahrain` → `bahrain` → `tracks/bahrain.glb` (confirm via `GET /api/sessions/{key}/track-asset` → `circuitSlug`)
+- [ ] **Cars on strip in x/z** — flat GLB aligns horizontally in the app before any Blender pass
+- [ ] **After Blender edit, x/z unchanged** — re-export without baking scale or shifting normalized horizontal coordinates
+
 ## Reference run — Bahrain session 9161
 
 ```bash
@@ -140,7 +149,7 @@ After generating the flat GLB:
 1. Import `bahrain.glb` in Blender.
 2. Use OpenF1 normalized y from `{circuit}.elevation.json` (or a height map) to sculpt elevation.
 3. Add cross-slope / banking by hand on the mesh or with a curve modifier.
-4. Re-export GLB **without changing x/z scale** — stay in normalized [-1, 1] space on each axis.
+4. Re-export GLB keeping **x and z** normalized in `[-1, 1]` — do not rescale or re-center horizontal coordinates; **y** may be modified for elevation and banking.
 5. Re-upload to `tracks/{circuit-slug}.glb` in S3.
 
 See also `assets/tracks/README.md` for S3 layout and coordinate notes.
