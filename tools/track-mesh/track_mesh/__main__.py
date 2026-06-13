@@ -46,9 +46,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--method",
-        choices=("polar_bin", "arc_length", "angle"),
-        default="polar_bin",
-        help="Centerline algorithm (default: polar_bin).",
+        choices=("reference_lap", "polar_bin", "arc_length", "angle"),
+        default="reference_lap",
+        help="Centerline algorithm (default: reference_lap).",
     )
     parser.add_argument(
         "--cache",

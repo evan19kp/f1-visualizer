@@ -30,37 +30,48 @@ def extract_centerline(
     *,
     driver_number: int | None = None,
     point_count: int = 300,
-    method: str = "polar_bin",
+    method: str = "reference_lap",
 ) -> list[CenterlinePoint]:
     """
     Build a closed loop in normalized space.
 
     method:
-      - polar_bin (default): bin all samples by angle around the x/z centroid and
-        average points per bin into a closed loop. Works for qualifying/practice
-        where drivers do not close a single tidy lap loop.
-      - arc_length (Option B): sort one driver's samples by timestamp, detect one
-        lap, resample by arc length. Best for race sessions with full laps.
-      - angle (Option A): sort by atan2(z, x) around centroid — matches
-        TrackMesh.tsx buildCenterLineVertices for a driver snapshot.
+      - reference_lap (default): one reference driver's best flying lap, sorted by
+        timestamp and resampled. Works for qualifying/practice on concave circuits.
+      - arc_length: first detected lap from the reference driver.
+      - polar_bin: bin all samples by angle around the x/z centroid — poor on
+        concave circuits (Singapore, Monaco).
+      - angle: sort by atan2(z, x) around centroid — snapshot only.
     """
     if point_count <= 0:
         raise ValueError("point_count must be > 0")
 
-    if method == "polar_bin":
-        return _centerline_by_polar_bins(samples, point_count=point_count)
-    if method == "angle":
-        return _centerline_by_angle(samples, point_count=point_count)
-    if method == "arc_length":
+    if method in ("reference_lap", "arc_length"):
         driver = driver_number if driver_number is not None else choose_reference_driver(samples)
         driver_samples = [sample for sample in samples if sample.driver_number == driver]
         driver_samples.sort(key=lambda sample: sample.timestamp)
         if len(driver_samples) < 4:
             return _centerline_by_polar_bins(samples, point_count=point_count)
-        lap = _extract_one_lap(driver_samples)
-        if len(lap) >= len(driver_samples):
-            return _centerline_by_polar_bins(samples, point_count=point_count)
-        return _resample_closed_loop(lap, point_count=point_count)
+
+        if method == "reference_lap":
+            lap_samples = _pick_reference_lap(driver_samples)
+            if len(lap_samples) >= len(driver_samples):
+                return _centerline_by_polar_bins(samples, point_count=point_count)
+            points = [
+                CenterlinePoint(x=sample.x, y=0.0, z=sample.z, elevation_y=sample.y)
+                for sample in lap_samples
+            ]
+        else:
+            lap = _extract_one_lap(driver_samples)
+            if len(lap) >= len(driver_samples):
+                return _centerline_by_polar_bins(samples, point_count=point_count)
+            points = lap
+
+        return _resample_closed_loop(points, point_count=point_count)
+    if method == "polar_bin":
+        return _centerline_by_polar_bins(samples, point_count=point_count)
+    if method == "angle":
+        return _centerline_by_angle(samples, point_count=point_count)
     raise ValueError(f"Unknown centerline method: {method}")
 
 
@@ -131,6 +142,10 @@ def _extract_one_lap(samples: list[NormalizedSample]) -> list[CenterlinePoint]:
         CenterlinePoint(x=sample.x, y=0.0, z=sample.z, elevation_y=sample.y)
         for sample in samples
     ]
+    return _extract_one_lap_from_points(points)
+
+
+def _extract_one_lap_from_points(points: list[CenterlinePoint]) -> list[CenterlinePoint]:
     start = points[0]
     cumulative = 0.0
     min_lap_distance = 2.0
@@ -149,6 +164,56 @@ def _extract_one_lap(samples: list[NormalizedSample]) -> list[CenterlinePoint]:
     if len(lap) < 4:
         return points
     return lap
+
+
+def _lap_path_length(samples: list[NormalizedSample]) -> float:
+    total = 0.0
+    for left, right in zip(samples, samples[1:]):
+        total += math.hypot(right.x - left.x, right.z - left.z)
+    return total
+
+
+def _split_laps(samples: list[NormalizedSample]) -> list[list[NormalizedSample]]:
+    """Split a driver's timestamp-ordered samples into closed lap segments."""
+    if len(samples) < 4:
+        return [samples]
+
+    laps: list[list[NormalizedSample]] = []
+    start_index = 0
+    start = samples[0]
+    cumulative = 0.0
+    min_lap_distance = 1.5
+    closure_distance = 0.15
+
+    for index in range(1, len(samples)):
+        previous = samples[index - 1]
+        current = samples[index]
+        cumulative += math.hypot(current.x - previous.x, current.z - previous.z)
+        if cumulative < min_lap_distance:
+            continue
+        if math.hypot(current.x - start.x, current.z - start.z) <= closure_distance:
+            laps.append(samples[start_index : index + 1])
+            start_index = index
+            start = current
+            cumulative = 0.0
+
+    if start_index < len(samples) - 1:
+        laps.append(samples[start_index:])
+    return laps if laps else [samples]
+
+
+def _pick_reference_lap(samples: list[NormalizedSample]) -> list[NormalizedSample]:
+    """
+    Choose a representative flying lap: ignore very short out-laps and very long
+    segments (traffic / merged laps), then take the median by path length.
+    """
+    laps = _split_laps(samples)
+    candidates = [lap for lap in laps if 200 <= len(lap) <= 900]
+    if not candidates:
+        candidates = laps
+
+    candidates.sort(key=_lap_path_length)
+    return candidates[len(candidates) // 2]
 
 
 def _resample_closed_loop(points: list[CenterlinePoint], *, point_count: int) -> list[CenterlinePoint]:

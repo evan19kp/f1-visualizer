@@ -26,9 +26,10 @@ def build_ribbon_mesh(
     """
     Extrude a flat strip in GLB space.
 
-    TrackMesh applies rotation [-pi/2, 0, 0] and scale 50. Mapping:
-      glb.x = normalized x
-      glb.y = -normalized z
+    TrackMesh applies rotation [-pi/2, 0, 0] and scale 50. Normalized samples use scene
+    axes (x-z horizontal, y elevation). Mapping:
+      glb.x = scene x
+      glb.y = -scene z
       glb.z = flat height (constant for V1)
     """
     if len(centerline) < 2:

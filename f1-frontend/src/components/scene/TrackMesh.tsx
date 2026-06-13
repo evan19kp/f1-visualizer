@@ -1,10 +1,13 @@
 import { useGLTF } from '@react-three/drei'
-import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   BufferGeometry,
+  DoubleSide,
   Float32BufferAttribute,
   Line,
   LineBasicMaterial,
+  Mesh,
+  MeshStandardMaterial,
 } from 'three'
 import { API_URL } from '../../config/session'
 import {
@@ -16,29 +19,11 @@ import {
 import { useRaceStore } from '../../store/raceStore'
 import type { Position } from '../../types/position'
 import { positionToVector3 } from '../../utils/scenePosition'
-
-interface SessionBounds {
-  minX: number
-  maxX: number
-  minY: number
-  maxY: number
-  minZ: number
-  maxZ: number
-}
+import { resolveTrackAssetUrl } from '../../utils/trackAssetUrl'
 
 interface TrackAssetResponse {
   url: string
   circuitSlug: string
-}
-
-function isSessionBounds(value: unknown): value is SessionBounds {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-  const bounds = value as Record<string, unknown>
-  return ['minX', 'maxX', 'minY', 'maxY', 'minZ', 'maxZ'].every(
-    (key) => typeof bounds[key] === 'number' && Number.isFinite(bounds[key] as number),
-  )
 }
 
 function isTrackAssetResponse(value: unknown): value is TrackAssetResponse {
@@ -98,8 +83,37 @@ function updateCenterLineGeometry(geometry: BufferGeometry, vertices: Float32Arr
 }
 
 function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
-  const { scene } = useGLTF(url)
-  const clonedScene = useMemo(() => scene.clone(), [scene])
+  const loadUrl = useMemo(() => resolveTrackAssetUrl(url), [url])
+  const { scene } = useGLTF(loadUrl)
+  const trackMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: SCENE_COLORS.trackPlane,
+        side: DoubleSide,
+      }),
+    [scene],
+  )
+  const clonedScene = useMemo(() => {
+    const clone = scene.clone()
+    clone.traverse((object) => {
+      if (!(object instanceof Mesh)) {
+        return
+      }
+      object.material = trackMaterial
+    })
+    return clone
+  }, [scene, trackMaterial])
+
+  useEffect(() => {
+    return () => {
+      trackMaterial.dispose()
+      clonedScene.traverse((object) => {
+        if (object instanceof Mesh) {
+          object.geometry.dispose()
+        }
+      })
+    }
+  }, [clonedScene, trackMaterial])
 
   return (
     <primitive
@@ -156,7 +170,6 @@ function ProceduralTrackMesh({
 export function TrackMesh(): React.JSX.Element {
   const sessionKey = useRaceStore((state) => state.sessionKey)
   const positions = useRaceStore((state) => state.positions)
-  const [bounds, setBounds] = useState<SessionBounds | null>(null)
   const [trackAssetUrl, setTrackAssetUrl] = useState<string | null>(null)
 
   const centerLine = useMemo(
@@ -230,48 +243,6 @@ export function TrackMesh(): React.JSX.Element {
   }, [sessionKey])
 
   useEffect(() => {
-    if (!sessionKey) {
-      return
-    }
-
-    const controller = new AbortController()
-    void (async () => {
-      try {
-        const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/bounds`, {
-          signal: controller.signal,
-        })
-        if (!response.ok) {
-          if (import.meta.env.DEV) {
-            console.warn(
-              `TrackMesh: bounds request failed (${response.status}) for session ${sessionKey}`,
-            )
-          }
-          return
-        }
-
-        const payload: unknown = await response.json()
-        if (isSessionBounds(payload)) {
-          setBounds(payload)
-          return
-        }
-
-        if (import.meta.env.DEV) {
-          console.error(`TrackMesh: invalid bounds payload for session ${sessionKey}`, payload)
-        }
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return
-        }
-        if (import.meta.env.DEV) {
-          console.error(`TrackMesh: failed to fetch bounds for session ${sessionKey}`, error)
-        }
-      }
-    })()
-
-    return () => controller.abort()
-  }, [sessionKey])
-
-  useEffect(() => {
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current)
     }
@@ -312,13 +283,9 @@ export function TrackMesh(): React.JSX.Element {
   }, [positions, centerLine])
 
   const planeSize = useMemo(() => {
-    if (bounds) {
-      const width = Math.max((bounds.maxX - bounds.minX) * TRACK_SCALE, 20)
-      const depth = Math.max((bounds.maxZ - bounds.minZ) * TRACK_SCALE, 20)
-      return { width: width * 1.4, depth: depth * 1.4 }
-    }
-    return { width: 120, depth: 120 }
-  }, [bounds])
+    const span = 2 * TRACK_SCALE * 1.4
+    return { width: span, depth: span }
+  }, [])
 
   return (
     <group>
@@ -327,7 +294,9 @@ export function TrackMesh(): React.JSX.Element {
           key={trackAssetUrl}
           fallback={<ProceduralTrackMesh planeSize={planeSize} />}
         >
-          <GlbTrackMesh url={trackAssetUrl} />
+          <Suspense fallback={<ProceduralTrackMesh planeSize={planeSize} />}>
+            <GlbTrackMesh url={trackAssetUrl} />
+          </Suspense>
         </GlbTrackErrorBoundary>
       ) : (
         <ProceduralTrackMesh planeSize={planeSize} />

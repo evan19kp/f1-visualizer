@@ -17,6 +17,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': 'http://localhost:8080',
+      '/track-assets': {
+        target: 'http://localhost:4566',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/track-assets/, ''),
+      },
       '/ws': {
         target: 'ws://localhost:8080',
         ws: true,
