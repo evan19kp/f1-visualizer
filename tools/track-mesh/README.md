@@ -112,6 +112,15 @@ Dev check in the app:
 2. Run API + frontend with session `9161`.
 3. Cars should sit on the ribbon in **x/z** (elevation may differ until Blender pass).
 
+## Pre-upload checklist
+
+Before uploading to S3 (LocalStack or production):
+
+- [ ] **Session key matches ingestion** — same value as `OPENF1_SESSION_KEY` and `VITE_SESSION_KEY`
+- [ ] **`circuit_name` → slug matches S3 key** — e.g. `Bahrain` → `bahrain` → `tracks/bahrain.glb` (confirm via `GET /api/sessions/{key}/track-asset` → `circuitSlug`)
+- [ ] **Cars on strip in x/z** — flat GLB aligns horizontally in the app before any Blender pass
+- [ ] **After Blender edit, x/z unchanged** — re-export without baking scale or shifting normalized horizontal coordinates
+
 ## Reference run — Bahrain session 9161
 
 ```bash
