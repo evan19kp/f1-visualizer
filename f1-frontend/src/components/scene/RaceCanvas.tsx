@@ -1,5 +1,4 @@
 import { Canvas } from '@react-three/fiber'
-import { Suspense } from 'react'
 import { SCENE_COLORS } from '../../config/scene'
 import { Cars } from './Cars'
 import { CameraRig } from './CameraRig'
@@ -17,11 +16,9 @@ export function RaceCanvas(): React.JSX.Element {
         <color attach="background" args={[SCENE_COLORS.background]} />
         <ambientLight intensity={0.45} />
         <directionalLight castShadow intensity={1.1} position={[30, 50, 20]} />
-        <Suspense fallback={null}>
-          <TrackMesh />
-          <Cars />
-          <CameraRig />
-        </Suspense>
+        <TrackMesh />
+        <Cars />
+        <CameraRig />
       </Canvas>
       <EmptyTrackOverlay />
     </div>

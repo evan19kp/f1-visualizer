@@ -1,10 +1,13 @@
 import { useGLTF } from '@react-three/drei'
-import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   BufferGeometry,
+  DoubleSide,
   Float32BufferAttribute,
   Line,
   LineBasicMaterial,
+  Mesh,
+  MeshStandardMaterial,
 } from 'three'
 import { API_URL } from '../../config/session'
 import {
@@ -16,6 +19,7 @@ import {
 import { useRaceStore } from '../../store/raceStore'
 import type { Position } from '../../types/position'
 import { positionToVector3 } from '../../utils/scenePosition'
+import { resolveTrackAssetUrl } from '../../utils/trackAssetUrl'
 
 interface SessionBounds {
   minX: number
@@ -98,8 +102,21 @@ function updateCenterLineGeometry(geometry: BufferGeometry, vertices: Float32Arr
 }
 
 function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
-  const { scene } = useGLTF(url)
-  const clonedScene = useMemo(() => scene.clone(), [scene])
+  const loadUrl = useMemo(() => resolveTrackAssetUrl(url), [url])
+  const { scene } = useGLTF(loadUrl)
+  const clonedScene = useMemo(() => {
+    const clone = scene.clone()
+    clone.traverse((object) => {
+      if (!(object instanceof Mesh)) {
+        return
+      }
+      object.material = new MeshStandardMaterial({
+        color: SCENE_COLORS.trackPlane,
+        side: DoubleSide,
+      })
+    })
+    return clone
+  }, [scene])
 
   return (
     <primitive
@@ -312,13 +329,11 @@ export function TrackMesh(): React.JSX.Element {
   }, [positions, centerLine])
 
   const planeSize = useMemo(() => {
-    if (bounds) {
-      const width = Math.max((bounds.maxX - bounds.minX) * TRACK_SCALE, 20)
-      const depth = Math.max((bounds.maxZ - bounds.minZ) * TRACK_SCALE, 20)
-      return { width: width * 1.4, depth: depth * 1.4 }
-    }
-    return { width: 120, depth: 120 }
-  }, [bounds])
+    // /bounds returns raw OpenF1 metres; car positions are normalized [-1, 1] × TRACK_SCALE.
+    // Size the procedural plane in scene units, not raw bounds × TRACK_SCALE.
+    const span = 2 * TRACK_SCALE * 1.4
+    return { width: span, depth: span }
+  }, [])
 
   return (
     <group>
@@ -327,7 +342,9 @@ export function TrackMesh(): React.JSX.Element {
           key={trackAssetUrl}
           fallback={<ProceduralTrackMesh planeSize={planeSize} />}
         >
-          <GlbTrackMesh url={trackAssetUrl} />
+          <Suspense fallback={<ProceduralTrackMesh planeSize={planeSize} />}>
+            <GlbTrackMesh url={trackAssetUrl} />
+          </Suspense>
         </GlbTrackErrorBoundary>
       ) : (
         <ProceduralTrackMesh planeSize={planeSize} />

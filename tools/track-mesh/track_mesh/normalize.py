@@ -88,6 +88,7 @@ def normalize_samples(
     for _, _, x, y, z in samples:
         updated_bounds = updated_bounds.expand(x, y, z)
 
+    # OpenF1 x-y is the track plane; z is narrow (~200 m). Scene uses x-z horizontal, y elevation.
     normalized: list[NormalizedSample] = []
     for driver_number, timestamp, x, y, z in samples:
         normalized.append(
@@ -95,8 +96,8 @@ def normalize_samples(
                 driver_number=driver_number,
                 timestamp=timestamp,
                 x=normalize_axis(x, updated_bounds.min_x, updated_bounds.max_x),
-                y=normalize_axis(y, updated_bounds.min_y, updated_bounds.max_y),
-                z=normalize_axis(z, updated_bounds.min_z, updated_bounds.max_z),
+                y=normalize_axis(z, updated_bounds.min_z, updated_bounds.max_z),
+                z=normalize_axis(y, updated_bounds.min_y, updated_bounds.max_y),
             )
         )
     return normalized, updated_bounds

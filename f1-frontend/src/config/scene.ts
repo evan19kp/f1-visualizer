@@ -6,6 +6,6 @@ export const CENTER_LINE_MOVE_THRESHOLD = 0.5
 
 export const SCENE_COLORS = {
   background: '#0a0a0a',
-  trackPlane: '#333333',
+  trackPlane: '#5a5a5a',
   centerLine: '#ffffff',
 } as const
