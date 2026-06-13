@@ -21,28 +21,9 @@ import type { Position } from '../../types/position'
 import { positionToVector3 } from '../../utils/scenePosition'
 import { resolveTrackAssetUrl } from '../../utils/trackAssetUrl'
 
-interface SessionBounds {
-  minX: number
-  maxX: number
-  minY: number
-  maxY: number
-  minZ: number
-  maxZ: number
-}
-
 interface TrackAssetResponse {
   url: string
   circuitSlug: string
-}
-
-function isSessionBounds(value: unknown): value is SessionBounds {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-  const bounds = value as Record<string, unknown>
-  return ['minX', 'maxX', 'minY', 'maxY', 'minZ', 'maxZ'].every(
-    (key) => typeof bounds[key] === 'number' && Number.isFinite(bounds[key] as number),
-  )
 }
 
 function isTrackAssetResponse(value: unknown): value is TrackAssetResponse {
@@ -173,7 +154,6 @@ function ProceduralTrackMesh({
 export function TrackMesh(): React.JSX.Element {
   const sessionKey = useRaceStore((state) => state.sessionKey)
   const positions = useRaceStore((state) => state.positions)
-  const [bounds, setBounds] = useState<SessionBounds | null>(null)
   const [trackAssetUrl, setTrackAssetUrl] = useState<string | null>(null)
 
   const centerLine = useMemo(
@@ -247,48 +227,6 @@ export function TrackMesh(): React.JSX.Element {
   }, [sessionKey])
 
   useEffect(() => {
-    if (!sessionKey) {
-      return
-    }
-
-    const controller = new AbortController()
-    void (async () => {
-      try {
-        const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/bounds`, {
-          signal: controller.signal,
-        })
-        if (!response.ok) {
-          if (import.meta.env.DEV) {
-            console.warn(
-              `TrackMesh: bounds request failed (${response.status}) for session ${sessionKey}`,
-            )
-          }
-          return
-        }
-
-        const payload: unknown = await response.json()
-        if (isSessionBounds(payload)) {
-          setBounds(payload)
-          return
-        }
-
-        if (import.meta.env.DEV) {
-          console.error(`TrackMesh: invalid bounds payload for session ${sessionKey}`, payload)
-        }
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return
-        }
-        if (import.meta.env.DEV) {
-          console.error(`TrackMesh: failed to fetch bounds for session ${sessionKey}`, error)
-        }
-      }
-    })()
-
-    return () => controller.abort()
-  }, [sessionKey])
-
-  useEffect(() => {
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current)
     }
@@ -329,8 +267,6 @@ export function TrackMesh(): React.JSX.Element {
   }, [positions, centerLine])
 
   const planeSize = useMemo(() => {
-    // /bounds returns raw OpenF1 metres; car positions are normalized [-1, 1] × TRACK_SCALE.
-    // Size the procedural plane in scene units, not raw bounds × TRACK_SCALE.
     const span = 2 * TRACK_SCALE * 1.4
     return { width: span, depth: span }
   }, [])
