@@ -56,6 +56,10 @@ public class TrackMeshGenerationService {
                         HttpStatus.BAD_GATEWAY,
                         "Track mesh generation failed: " + result.stderr());
             }
+            if (!Files.isRegularFile(outputPath) || Files.size(outputPath) == 0) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY, "Track mesh generation produced an empty or missing GLB");
+            }
 
             trackAssetService.uploadTrackMesh(circuitSlug, outputPath);
             URL url = trackAssetService

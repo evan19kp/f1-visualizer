@@ -6,10 +6,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Component;
 
 @Component
 public class SubprocessTrackMeshProcessRunner implements TrackMeshProcessRunner {
+
+    private static final long PROCESS_TIMEOUT_MINUTES = 10L;
 
     @Override
     public ProcessResult run(Path trackMeshRoot, long sessionKey, String circuitSlug, Path outputPath)
@@ -43,7 +46,11 @@ public class SubprocessTrackMeshProcessRunner implements TrackMeshProcessRunner 
             output = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }
         try {
-            int exitCode = process.waitFor();
+            if (!process.waitFor(PROCESS_TIMEOUT_MINUTES, TimeUnit.MINUTES)) {
+                process.destroyForcibly();
+                return new ProcessResult(1, "Track mesh generation timed out after " + PROCESS_TIMEOUT_MINUTES + " minutes");
+            }
+            int exitCode = process.exitValue();
             if (exitCode != 0) {
                 return new ProcessResult(exitCode, truncate(output));
             }

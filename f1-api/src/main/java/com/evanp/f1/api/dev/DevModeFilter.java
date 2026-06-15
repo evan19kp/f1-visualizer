@@ -17,8 +17,8 @@ public class DevModeFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        return path == null || !path.startsWith("/api/dev/");
+        String path = request.getServletPath();
+        return path == null || !path.startsWith("/api/dev");
     }
 
     @Override

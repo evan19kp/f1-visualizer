@@ -116,8 +116,10 @@ Copy `f1-frontend/.env.example` to `.env` and adjust as needed.
 **One-shot script** (no UI):
 
 ```bash
-./tools/track-mesh/publish.sh --session-key 9161 --use-cache
+./tools/track-mesh/publish.sh --session-key 9161
 ```
+
+Re-run from cache after the first fetch: `./tools/track-mesh/publish.sh --session-key 9161 --use-cache`
 
 See [assets/tracks/README.md](assets/tracks/README.md) and [tools/track-mesh/README.md](tools/track-mesh/README.md).
 
@@ -250,7 +252,7 @@ Upload workflow: [assets/tracks/README.md](assets/tracks/README.md). Generate me
 - [ ] `docker compose up -d` (postgres, redis, localstack)
 - [ ] API: `DEV_MODE=true`, `INGESTION_ENABLED=true`, `OPENF1_SESSION_KEY=9161`, LocalStack AWS env vars
 - [ ] Frontend: `VITE_DEV_AUTOLOGIN=true` + admin credentials; session `9161`
-- [ ] **Generate track** (Dev panel) or `./tools/track-mesh/publish.sh --session-key 9161 --use-cache`
+- [ ] **Generate track** (Dev panel) or `./tools/track-mesh/publish.sh --session-key 9161`
 - [ ] **Reset session** if car positions are stale after normalization changes
 - [ ] `curl -s http://localhost:8080/api/sessions/9161/track-asset` returns 200 with `circuitSlug: singapore`
 - [ ] Cars align on the GLB ribbon in x/z

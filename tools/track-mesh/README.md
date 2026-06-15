@@ -16,11 +16,19 @@ On macOS Python.org installs, if HTTPS fails with certificate errors, run `Insta
 ## Quick start
 
 ```bash
-# One-shot: generate, upload to LocalStack, clear Redis
-./tools/track-mesh/publish.sh --session-key 9161 --use-cache
+./tools/track-mesh/publish.sh --session-key 9161
+```
 
-# Or generate only:
+Or generate only:
+
+```bash
 ./tools/track-mesh/generate.sh --session-key 9161 --circuit-slug singapore
+```
+
+Re-run from cache (after first fetch):
+
+```bash
+./tools/track-mesh/publish.sh --session-key 9161 --use-cache
 ```
 
 Output (gitignored):
@@ -57,6 +65,12 @@ First run creates a local venv (stdlib only; no pip packages required). Raw Open
 ## Publish to LocalStack (one command)
 
 `publish.sh` wraps generate → LocalStack upload → Redis session clear:
+
+```bash
+./tools/track-mesh/publish.sh --session-key 9161
+```
+
+Optional rerun from cache:
 
 ```bash
 ./tools/track-mesh/publish.sh --session-key 9161 --use-cache
@@ -135,10 +149,13 @@ Before uploading to S3 (LocalStack or production):
 
 ```bash
 # One-shot publish (generate + LocalStack upload + Redis clear)
+./tools/track-mesh/publish.sh --session-key 9161
+
+# Re-run from cache (after first fetch)
 ./tools/track-mesh/publish.sh --session-key 9161 --use-cache
 
 # Or generate only
-./tools/track-mesh/generate.sh --session-key 9161 --circuit-slug singapore --use-cache
+./tools/track-mesh/generate.sh --session-key 9161 --circuit-slug singapore
 
 # Verify API
 curl -s http://localhost:8080/api/sessions/9161/track-asset

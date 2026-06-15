@@ -48,7 +48,11 @@ class TrackMeshGenerationServiceTest {
         when(session.getCircuitName()).thenReturn("Singapore");
         when(raceSessionRepository.findById(SESSION_KEY)).thenReturn(Optional.of(session));
         when(processRunner.run(eq(trackMeshRoot), eq(SESSION_KEY), eq("singapore"), any()))
-                .thenReturn(new TrackMeshProcessRunner.ProcessResult(0, ""));
+                .thenAnswer(invocation -> {
+                    Path outputPath = invocation.getArgument(3);
+                    Files.write(outputPath, new byte[] {0x67, 0x6c, 0x54, 0x46});
+                    return new TrackMeshProcessRunner.ProcessResult(0, "");
+                });
         when(trackAssetService.getPresignedTrackUrl("singapore"))
                 .thenReturn(Optional.of(new URL("https://s3.example.com/tracks/singapore.glb")));
 

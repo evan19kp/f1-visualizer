@@ -5,10 +5,14 @@ import com.evanp.f1.core.position.PositionStore;
 import com.evanp.f1.ingestion.IngestionService;
 import com.evanp.f1.ingestion.config.IngestionProperties;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class SessionResetService {
+
+    private static final Logger log = LoggerFactory.getLogger(SessionResetService.class);
 
     private final PositionStore positionStore;
     private final IngestionProperties ingestionProperties;
@@ -27,8 +31,16 @@ public class SessionResetService {
         List<String> clearedKeys = positionStore.clearSession(sessionKey);
         boolean reingestTriggered = false;
         if (ingestionProperties.enabled() && matchesIngestionKey(sessionKey)) {
-            ingestionService.pollOnce();
-            reingestTriggered = true;
+            try {
+                ingestionService.pollOnce();
+                reingestTriggered = true;
+            } catch (RuntimeException exception) {
+                log.warn(
+                        "Session {} cache cleared but re-ingest failed: {}",
+                        sessionKey,
+                        exception.getMessage(),
+                        exception);
+            }
         }
         return new SessionResetResponse(clearedKeys, reingestTriggered);
     }

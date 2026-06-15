@@ -35,6 +35,7 @@ export function DevToolsPanel(): React.JSX.Element | null {
     }
 
     setGenerateState('loading')
+    setResetState('idle')
     setMessage(null)
     try {
       const result = await generateTrackMesh(sessionKey, authToken)
@@ -55,6 +56,7 @@ export function DevToolsPanel(): React.JSX.Element | null {
     }
 
     setResetState('loading')
+    setGenerateState('idle')
     setMessage(null)
     try {
       const result = await resetSessionData(sessionKey, authToken)

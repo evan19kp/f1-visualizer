@@ -3,7 +3,6 @@ package com.evanp.f1.api.dev;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.Test;
@@ -16,6 +15,34 @@ class DevModeFilterTest {
     void blocksDevRoutesWhenDisabled() throws Exception {
         DevModeFilter filter = new DevModeFilter(new DevProperties(false, "tools/track-mesh"));
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/dev/sessions/9161/reset");
+        request.setServletPath("/api/dev/sessions/9161/reset");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+    }
+
+    @Test
+    void blocksExactDevRootWhenDisabled() throws Exception {
+        DevModeFilter filter = new DevModeFilter(new DevProperties(false, "tools/track-mesh"));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/dev");
+        request.setServletPath("/api/dev");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+    }
+
+    @Test
+    void blocksContextPathPrefixedDevRoutesWhenDisabled() throws Exception {
+        DevModeFilter filter = new DevModeFilter(new DevProperties(false, "tools/track-mesh"));
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/myapp/api/dev/sessions/9161/reset");
+        request.setContextPath("/myapp");
+        request.setServletPath("/api/dev/sessions/9161/reset");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
@@ -28,6 +55,7 @@ class DevModeFilterTest {
     void allowsDevRoutesWhenEnabled() throws Exception {
         DevModeFilter filter = new DevModeFilter(new DevProperties(true, "tools/track-mesh"));
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/dev/sessions/9161/reset");
+        request.setServletPath("/api/dev/sessions/9161/reset");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 

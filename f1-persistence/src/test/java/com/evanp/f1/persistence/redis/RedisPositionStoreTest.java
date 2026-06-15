@@ -189,13 +189,17 @@ class RedisPositionStoreTest {
     }
 
     @Test
-    void clearSession_deletesExpectedKeys() {
-        List<String> keys =
-                List.of("f1:session:" + SESSION_KEY + ":positions", "f1:session:" + SESSION_KEY + ":bounds", "f1:session:" + SESSION_KEY + ":poll_cursor");
+    void clearSession_deletesExistingKeysOnly() {
+        String positionsKey = "f1:session:" + SESSION_KEY + ":positions";
+        String boundsKey = "f1:session:" + SESSION_KEY + ":bounds";
+        String pollCursorKey = "f1:session:" + SESSION_KEY + ":poll_cursor";
+        when(redisTemplate.hasKey(positionsKey)).thenReturn(true);
+        when(redisTemplate.hasKey(boundsKey)).thenReturn(true);
+        when(redisTemplate.hasKey(pollCursorKey)).thenReturn(false);
 
         List<String> cleared = store.clearSession(SESSION_KEY);
 
-        verify(redisTemplate).delete(keys);
-        assertThat(cleared).isEqualTo(keys);
+        verify(redisTemplate).delete(List.of(positionsKey, boundsKey));
+        assertThat(cleared).containsExactly(positionsKey, boundsKey);
     }
 }

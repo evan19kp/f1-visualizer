@@ -31,17 +31,23 @@ When no object exists (404), the frontend keeps the procedural center-line + pla
 ### Option B — One-shot script
 
 ```bash
-./tools/track-mesh/publish.sh --session-key 9161 --use-cache
+./tools/track-mesh/publish.sh --session-key 9161
 ```
 
 Generates the GLB, uploads to LocalStack (via `docker exec`, no host AWS CLI required), and clears Redis session keys.
+
+Re-run from cache after the first fetch:
+
+```bash
+./tools/track-mesh/publish.sh --session-key 9161 --use-cache
+```
 
 ### Option C — Manual steps
 
 1. **Generate** a flat GLB for the session you ingest (same `session_key` as `OPENF1_SESSION_KEY`):
 
    ```bash
-   ./tools/track-mesh/generate.sh --session-key 9161 --circuit-slug singapore --use-cache
+   ./tools/track-mesh/generate.sh --session-key 9161 --circuit-slug singapore
    ```
 
 2. **Upload** to LocalStack (see [LocalStack upload](#localstack-upload)).

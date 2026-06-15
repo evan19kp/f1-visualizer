@@ -1,7 +1,7 @@
 package com.evanp.f1.api.dev;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -65,5 +65,20 @@ class SessionResetServiceTest {
 
         assertThat(response.reingestTriggered()).isFalse();
         verify(ingestionService, never()).pollOnce();
+    }
+
+    @Test
+    void reset_returnsClearedKeysWhenReingestFails() {
+        List<String> cleared = List.of("f1:session:9161:positions");
+        when(positionStore.clearSession(SESSION_KEY)).thenReturn(cleared);
+        sessionResetService =
+                new SessionResetService(positionStore, new IngestionProperties(true, "9161"), ingestionService);
+        doThrow(new RuntimeException("OpenF1 unavailable")).when(ingestionService).pollOnce();
+
+        SessionResetResponse response = sessionResetService.reset(SESSION_KEY);
+
+        assertThat(response.clearedKeys()).isEqualTo(cleared);
+        assertThat(response.reingestTriggered()).isFalse();
+        verify(ingestionService).pollOnce();
     }
 }

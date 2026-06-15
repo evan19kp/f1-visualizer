@@ -37,10 +37,18 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --session-key)
+      if [[ $# -lt 2 || -z "${2:-}" ]]; then
+        echo "Error: --session-key requires a value" >&2
+        exit 1
+      fi
       SESSION_KEY="$2"
       shift 2
       ;;
     --circuit-slug)
+      if [[ $# -lt 2 || -z "${2:-}" ]]; then
+        echo "Error: --circuit-slug requires a value" >&2
+        exit 1
+      fi
       CIRCUIT_SLUG="$2"
       shift 2
       ;;
@@ -49,6 +57,10 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --api-url)
+      if [[ $# -lt 2 || -z "${2:-}" ]]; then
+        echo "Error: --api-url requires a value" >&2
+        exit 1
+      fi
       API_URL="$2"
       shift 2
       ;;
@@ -70,6 +82,11 @@ if [[ -z "${SESSION_KEY}" ]]; then
   exit 1
 fi
 
+if [[ ! "${SESSION_KEY}" =~ ^[0-9]+$ ]]; then
+  echo "Error: --session-key must be numeric (got: ${SESSION_KEY})" >&2
+  exit 1
+fi
+
 slugify() {
   echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g'
 }
@@ -86,7 +103,7 @@ resolve_circuit_slug() {
   fi
 
   local response circuit_name
-  response="$(curl -sf "${API_URL}/api/sessions/${SESSION_KEY}" 2>/dev/null)" || {
+  response="$(curl -sf --connect-timeout 5 --max-time 30 "${API_URL}/api/sessions/${SESSION_KEY}" 2>/dev/null)" || {
     echo "Error: could not fetch session ${SESSION_KEY} from ${API_URL}" >&2
     echo "Pass --circuit-slug explicitly (e.g. singapore for session 9161)." >&2
     exit 1
