@@ -44,7 +44,7 @@ class RaceControlPollerTest {
     @BeforeEach
     void setUp() {
         RaceControlEventDetector detector = new RaceControlEventDetector();
-        IngestionProperties properties = new IngestionProperties(false, String.valueOf(SESSION_KEY));
+        IngestionProperties properties = new IngestionProperties(false, String.valueOf(SESSION_KEY), false);
         poller = new RaceControlPoller(openF1Client, detector, raceEngineerService, properties);
     }
 
@@ -155,7 +155,7 @@ class RaceControlPollerTest {
     @Test
     void poll_nonNumericConfigKey_cachesSessionLookup() {
         RaceControlEventDetector detector = new RaceControlEventDetector();
-        IngestionProperties properties = new IngestionProperties(false, "latest");
+        IngestionProperties properties = new IngestionProperties(false, "latest", false);
         poller = new RaceControlPoller(openF1Client, detector, raceEngineerService, properties);
 
         OpenF1SessionResponse session = new OpenF1SessionResponse(

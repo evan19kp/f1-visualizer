@@ -24,7 +24,7 @@ All backend commands run from the **repo root** (`f1-visualizer/`), not `f1-fron
 ./scripts/dev-up.sh
 ```
 
-Starts Docker, optionally publishes a cached track mesh, then prints env blocks for the API and frontend terminals. After both are running, use **Dev → Backfill history** and **Play** on the timeline for session `9161`.
+Starts Docker, optionally publishes the Singapore track mesh for session `9161`, then prints env blocks for the API and frontend terminals. When the API starts with `INGESTION_ENABLED=true`, it automatically backfills replay history (~30s) — cars and the timeline appear without Dev Tools.
 
 Verify with:
 
@@ -49,7 +49,7 @@ Postgres listens on **host port 5433** (see `docker-compose.yml`: `5433:5432`) t
 INGESTION_ENABLED=true OPENF1_SESSION_KEY=9161 ./mvnw spring-boot:run -pl f1-api
 ```
 
-`9161` is Singapore GP qualifying 2023 — a reliable demo session. Wait for `Started F1VisualizerApplication`. No API keys are required for the basic 3D demo.
+`9161` is Singapore GP qualifying 2023 — a reliable demo session. Wait for `Started F1VisualizerApplication`, then give bootstrap ~30s to load replay history from OpenF1. Cars and the playback timeline appear automatically; no Dev Tools required. No API keys are required for the basic 3D demo.
 
 Optional: copy `.env.example` to `.env` at the repo root and export the vars (`set -a && source .env && set +a`), or pass them inline as above.
 
@@ -91,6 +91,7 @@ Copy `.env.example` to `.env` at the repo root for a ready-made local profile (n
 | `DB_USER` / `DB_PASSWORD` | `f1user` / `f1pass` | Match `docker-compose.yml` Postgres service |
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | |
 | `INGESTION_ENABLED` | `false` | Set `true` to poll OpenF1 |
+| `INGESTION_AUTO_BOOTSTRAP` | `true` | On startup, backfill replay history when Redis has none |
 | `OPENF1_SESSION_KEY` | `9161` | OpenF1 session key (e.g. `9161`) |
 | `OPENF1_ACCESS_TOKEN` | — | Optional bearer token for authenticated OpenF1 REST access |
 | `OPENF1_USERNAME` / `OPENF1_PASSWORD` | — | Optional OpenF1 credentials; backend exchanges them for a bearer token |
@@ -281,8 +282,8 @@ Upload workflow: [assets/tracks/README.md](assets/tracks/README.md). Generate me
 
 - [ ] `docker compose up -d` (postgres, redis, localstack)
 - [ ] API: `DEV_MODE=true`, `INGESTION_ENABLED=true`, `OPENF1_SESSION_KEY=9161`, LocalStack AWS env vars
-- [ ] Frontend: `VITE_DEV_AUTOLOGIN=true` + admin credentials; session `9161`
-- [ ] **Generate track** (Dev panel) or `./tools/track-mesh/publish.sh --session-key 9161`
+- [ ] Wait ~30s after API start for automatic session bootstrap (or check `historyLoaded` via playback API)
+- [ ] **Generate track** (Dev panel) or `./tools/track-mesh/publish.sh --session-key 9161 --circuit-slug singapore`
 - [ ] **Reset session** if car positions are stale after normalization changes
 - [ ] `curl -s http://localhost:8080/api/sessions/9161/track-asset` returns 200 with `circuitSlug: singapore`
 - [ ] Cars align on the GLB ribbon in x/z

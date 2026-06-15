@@ -78,6 +78,8 @@ app:
   ingestion:
     enabled: ${INGESTION_ENABLED:false}
     session-key: ${OPENF1_SESSION_KEY:9161}
+    # On startup, backfill OpenF1 history when Redis has none (demo session works without Dev Tools).
+    auto-bootstrap: ${INGESTION_AUTO_BOOTSTRAP:true}
   s3:
     bucket: ${S3_BUCKET:f1-visualizer-assets}
     region: ${AWS_REGION:us-east-1}
