@@ -49,9 +49,12 @@ public class SessionHistoryBackfillService {
             return new BackfillResult(sessionKey, 0, false, "session_not_found");
         }
 
-        Optional<OpenF1SessionResponse> session = openF1Client.fetchSession(configKey);
-        Instant start = session.map(OpenF1SessionResponse::dateStart).orElse(Instant.EPOCH);
-        Instant end = session.map(OpenF1SessionResponse::dateEnd).orElse(clock.instant());
+        Optional<OpenF1SessionResponse> session = openF1Client.fetchSession(String.valueOf(sessionKey));
+        if (session.isEmpty()) {
+            return new BackfillResult(sessionKey, 0, false, "session_metadata_unavailable");
+        }
+        Instant start = session.get().dateStart();
+        Instant end = session.get().dateEnd() != null ? session.get().dateEnd() : clock.instant();
         if (end.isBefore(start)) {
             end = clock.instant();
         }
@@ -81,7 +84,7 @@ public class SessionHistoryBackfillService {
 
             Instant maxTimestamp =
                     samples.stream().map(OpenF1LocationResponse::date).max(Instant::compareTo).orElse(cursor);
-            cursor = maxTimestamp;
+            cursor = maxTimestamp.isAfter(cursor) ? maxTimestamp : windowEnd;
         }
 
         positionStore.savePollCursor(sessionKey, end);
@@ -97,7 +100,8 @@ public class SessionHistoryBackfillService {
     private static List<NormalizedPosition> dedupeLatestPerDriver(List<NormalizedPosition> positions) {
         Map<Integer, NormalizedPosition> latest = new LinkedHashMap<>();
         for (NormalizedPosition position : positions) {
-            latest.put(position.driverNumber(), position);
+            latest.merge(position.driverNumber(), position, (existing, candidate) ->
+                    candidate.timestamp().isAfter(existing.timestamp()) ? candidate : existing);
         }
         return new ArrayList<>(latest.values());
     }

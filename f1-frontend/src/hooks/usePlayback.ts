@@ -68,12 +68,15 @@ export function usePlayback(sessionKey: string): {
 
   const refresh = useCallback(async (): Promise<void> => {
     if (!sessionKey) {
+      setPlayback(null)
       return
     }
     try {
       const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback`)
       if (response.ok) {
         setPlayback((await response.json()) as PlaybackState)
+      } else {
+        setPlayback(null)
       }
     } catch {
       setPlayback(null)

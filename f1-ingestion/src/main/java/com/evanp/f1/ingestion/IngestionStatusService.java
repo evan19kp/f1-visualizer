@@ -43,10 +43,10 @@ public class IngestionStatusService {
                     lastPollAt.get(),
                     "ingestion_disabled");
         }
-        long resolved = sessionKeyResolver.resolveNumericKey(properties.sessionKey());
-        if (lastResolvedSessionKey.get() != null) {
-            resolved = lastResolvedSessionKey.get();
-        }
+        Long cached = lastResolvedSessionKey.get();
+        long resolved = cached != null
+                ? cached
+                : sessionKeyResolver.resolveNumericKey(properties.sessionKey());
         return new Snapshot(
                 true,
                 properties.sessionKey(),

@@ -32,6 +32,9 @@ export AWS_SECRET_ACCESS_KEY=test
 Copy into terminal 2 (frontend):
 
 cd f1-frontend
+export VITE_DEV_AUTOLOGIN=true
+export VITE_DEV_AUTH_USER=admin
+export VITE_DEV_AUTH_PASS=changeme
 npm install
 npm run dev
 

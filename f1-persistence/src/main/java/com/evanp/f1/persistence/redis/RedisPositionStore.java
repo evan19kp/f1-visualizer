@@ -122,6 +122,7 @@ public class RedisPositionStore implements PositionStore {
         for (Map.Entry<Instant, Map<Integer, NormalizedPosition>> entry : byTime.entrySet()) {
             double score = entry.getKey().toEpochMilli();
             List<NormalizedPosition> frame = List.copyOf(entry.getValue().values());
+            zset.removeRangeByScore(key, score, score);
             zset.add(key, toJson(frame), score);
         }
     }
@@ -131,7 +132,7 @@ public class RedisPositionStore implements PositionStore {
         String key = historyKey(sessionKey);
         double score = instant.toEpochMilli();
         Set<String> atOrBefore =
-                redis.opsForZSet().reverseRangeByScore(key, score, Double.NEGATIVE_INFINITY, 0, 1);
+                redis.opsForZSet().reverseRangeByScore(key, Double.NEGATIVE_INFINITY, score, 0, 1);
         if (atOrBefore == null || atOrBefore.isEmpty()) {
             Set<String> after = redis.opsForZSet().rangeByScore(key, score, Double.POSITIVE_INFINITY, 0, 1);
             if (after == null || after.isEmpty()) {

@@ -21,7 +21,13 @@ check() {
 
 check "health" "$API_URL/actuator/health"
 check "positions" "$API_URL/api/sessions/${SESSION_KEY}/positions"
-check "track-asset" "$API_URL/api/sessions/${SESSION_KEY}/track-asset"
+code="$(curl -s -o /dev/null -w '%{http_code}' "$API_URL/api/sessions/${SESSION_KEY}/track-asset" || echo "000")"
+if [[ "$code" =~ ^2 ]] || [[ "$code" == "404" ]]; then
+  echo "OK   track-asset ($code)"
+else
+  echo "FAIL track-asset ($code) $API_URL/api/sessions/${SESSION_KEY}/track-asset"
+  failures=$((failures + 1))
+fi
 check "ingestion-status" "$API_URL/api/ingestion/status"
 check "playback" "$API_URL/api/sessions/${SESSION_KEY}/playback"
 

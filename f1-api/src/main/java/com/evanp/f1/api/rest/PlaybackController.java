@@ -29,6 +29,9 @@ public class PlaybackController {
     @PostMapping("/seek")
     public ResponseEntity<PlaybackState> seek(
             @PathVariable long sessionKey, @RequestBody SeekRequest request) {
+        if (request == null || request.instant() == null) {
+            return ResponseEntity.badRequest().build();
+        }
         return ResponseEntity.ok(playbackService.seek(sessionKey, request.instant()));
     }
 

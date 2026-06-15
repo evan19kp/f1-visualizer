@@ -87,7 +87,7 @@ export function DevToolsPanel(): React.JSX.Element | null {
     setMessage(null)
     try {
       const result = await backfillSessionHistory(sessionKey, authToken)
-      setBackfillState('success')
+      setBackfillState(result.success ? 'success' : 'error')
       setMessage(
         result.success
           ? `History backfilled (${result.samplesAppended} samples). Press Play on the timeline.`

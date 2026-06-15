@@ -1,4 +1,4 @@
-import { useIngestionStatus, usePlayback } from '../../hooks/usePlayback'
+import { useIngestionStatus } from '../../hooks/usePlayback'
 import { useRaceStore } from '../../store/raceStore'
 
 function ingestionMessage(
@@ -49,14 +49,19 @@ function ingestionMessage(
   }
 }
 
-export function EmptyTrackOverlay(): React.JSX.Element | null {
+interface EmptyTrackOverlayProps {
+  historyLoaded?: boolean
+}
+
+export function EmptyTrackOverlay({
+  historyLoaded = false,
+}: EmptyTrackOverlayProps): React.JSX.Element | null {
   const connectionStatus = useRaceStore((s) => s.connectionStatus)
   const positions = useRaceStore((s) => s.positions)
   const sessionKey = useRaceStore((s) => s.sessionKey)
   const ingestionStatus = useIngestionStatus()
-  const { playback } = usePlayback(sessionKey)
 
-  if (playback?.historyLoaded) {
+  if (historyLoaded) {
     return null
   }
 

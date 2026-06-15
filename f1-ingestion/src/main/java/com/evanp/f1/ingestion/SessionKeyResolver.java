@@ -18,7 +18,11 @@ public class SessionKeyResolver {
             return -1L;
         }
         if (isNumericSessionKey(configKey)) {
-            return Long.parseLong(configKey);
+            try {
+                return Long.parseLong(configKey);
+            } catch (NumberFormatException ignored) {
+                return -1L;
+            }
         }
         return openF1Client.fetchSession(configKey).map(OpenF1SessionResponse::sessionKey).orElse(-1L);
     }

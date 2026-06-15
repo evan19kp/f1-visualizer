@@ -88,5 +88,8 @@ class RedisPositionStoreIT extends AbstractContainersIT {
         assertThat(store.getFrameAt(SESSION_KEY, t2)).containsExactly(second);
         assertThat(store.getHistoryTimeRange(SESSION_KEY))
                 .contains(new com.evanp.f1.core.position.SessionTimeRange(t1, t2));
+        assertThat(store.getFrameAt(SESSION_KEY, t1.plusSeconds(2))).containsExactly(first);
+        assertThat(store.getFrameAt(SESSION_KEY, t1.minusSeconds(1))).containsExactly(first);
+        assertThat(store.getFrameAt(SESSION_KEY, t2.plusSeconds(1))).containsExactly(second);
     }
 }

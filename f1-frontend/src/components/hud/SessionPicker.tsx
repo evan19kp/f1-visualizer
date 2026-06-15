@@ -68,9 +68,10 @@ export function SessionPicker(): React.JSX.Element {
   const trimmed = input.trim()
   const unchanged = trimmed === sessionKey
   const showIngestionWarning =
+    ingestionStatus != null &&
     Boolean(sessionKey) &&
-    configuredKey !== sessionKey &&
-    String(ingestionStatus?.resolvedSessionKey ?? '') !== sessionKey
+    ingestionStatus.configuredSessionKey !== sessionKey &&
+    String(ingestionStatus.resolvedSessionKey) !== sessionKey
   const hasSessions = sessions.length > 0
   const sessionOptions: RaceSession[] = hasSessions
     ? sessions.some((session) => String(session.sessionKey) === sessionKey)

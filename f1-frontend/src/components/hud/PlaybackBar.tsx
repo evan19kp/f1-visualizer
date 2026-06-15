@@ -1,4 +1,4 @@
-import { usePlayback } from '../../hooks/usePlayback'
+import type { PlaybackState } from '../../hooks/usePlayback'
 
 function formatRaceTime(iso: string): string {
   if (!iso) {
@@ -9,12 +9,18 @@ function formatRaceTime(iso: string): string {
 }
 
 interface PlaybackBarProps {
-  sessionKey: string
+  playback: PlaybackState | null
+  play: (speed?: number) => Promise<void>
+  pause: () => Promise<void>
+  seek: (instant: string) => Promise<void>
 }
 
-export function PlaybackBar({ sessionKey }: PlaybackBarProps): React.JSX.Element | null {
-  const { playback, play, pause, seek } = usePlayback(sessionKey)
-
+export function PlaybackBar({
+  playback,
+  play,
+  pause,
+  seek,
+}: PlaybackBarProps): React.JSX.Element | null {
   if (!playback?.historyLoaded) {
     return null
   }

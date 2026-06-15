@@ -76,7 +76,6 @@ public class IngestionService {
 
             if (samples.isEmpty()) {
                 advanceCursorThroughEmptyWindow(storeSessionKey, since.orElse(Instant.EPOCH), until);
-                ingestionStatusService.recordPollSuccess(storeSessionKey);
                 return;
             }
 
