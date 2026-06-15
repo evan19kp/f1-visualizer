@@ -41,14 +41,14 @@ public class SubprocessTrackMeshProcessRunner implements TrackMeshProcessRunner 
         builder.redirectErrorStream(true);
 
         Process process = builder.start();
-        String output;
-        try (var stream = process.getInputStream()) {
-            output = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-        }
         try {
             if (!process.waitFor(PROCESS_TIMEOUT_MINUTES, TimeUnit.MINUTES)) {
                 process.destroyForcibly();
                 return new ProcessResult(1, "Track mesh generation timed out after " + PROCESS_TIMEOUT_MINUTES + " minutes");
+            }
+            String output;
+            try (var stream = process.getInputStream()) {
+                output = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
             }
             int exitCode = process.exitValue();
             if (exitCode != 0) {
