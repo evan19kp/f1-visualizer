@@ -16,7 +16,19 @@ On macOS Python.org installs, if HTTPS fails with certificate errors, run `Insta
 ## Quick start
 
 ```bash
-./tools/track-mesh/generate.sh --session-key 9161 --circuit-slug bahrain
+./tools/track-mesh/publish.sh --session-key 9161
+```
+
+Or generate only:
+
+```bash
+./tools/track-mesh/generate.sh --session-key 9161 --circuit-slug singapore
+```
+
+Re-run from cache (after first fetch):
+
+```bash
+./tools/track-mesh/publish.sh --session-key 9161 --use-cache
 ```
 
 Output (gitignored):
@@ -45,10 +57,27 @@ First run creates a local venv (stdlib only; no pip packages required). Raw Open
 | `--out` | `out/{slug}.glb` | Output GLB path |
 | `--width` | `0.02` | Ribbon width in normalized units (~2% of bbox) |
 | `--points` | `300` | Resampled centerline vertices |
-| `--method` | `polar_bin` | `polar_bin`, `arc_length`, or `angle` |
+| `--method` | `reference_lap` | `reference_lap`, `polar_bin`, `arc_length`, or `angle` |
 | `--driver` | most samples | Reference driver for lap centerline |
 | `--use-cache` | off | Skip network; read `cache/{session_key}.json` |
 | `--cache` | `cache/{session_key}.json` | Raw sample cache path |
+
+## Publish to LocalStack (one command)
+
+`publish.sh` wraps generate → LocalStack upload → Redis session clear:
+
+```bash
+./tools/track-mesh/publish.sh --session-key 9161
+```
+
+Optional rerun from cache:
+
+```bash
+./tools/track-mesh/publish.sh --session-key 9161 --use-cache
+```
+
+Options: `--circuit-slug` (default: resolved from `GET /api/sessions/{key}` `circuitName`), `--api-url`.  
+Requires LocalStack (`docker compose up -d localstack`) and optional `redis-cli` for cache clear.
 
 ## Coordinate system
 
@@ -75,14 +104,9 @@ After the loader rotation, cars align in scene **x/z** with the ribbon. OpenF1 e
 
 ## Centerline extraction
 
-**V1 default (`polar_bin`):**
+**V1 default (`reference_lap`):** one reference driver's median flying lap, sorted by timestamp and resampled. Works well on concave circuits (Singapore, Monaco).
 
-1. Expand bounds and normalize all drivers' samples (mirrors ingestion).
-2. Bin samples by angle around the x/z centroid.
-3. Average samples in each bin into a centerline vertex.
-4. Resample uniformly by arc length (~300 points) and close the loop.
-
-Works well for qualifying/practice where drivers never return to a single lap closure point. For full race sessions you can use `arc_length` with `--driver`.
+**`polar_bin`:** bin samples by angle around the x/z centroid — poor on concave circuits.
 
 **`arc_length` (Option B):** sort one reference driver's samples by timestamp, detect one lap, resample by arc length. Best when the driver completes clear lap loops.
 
@@ -117,36 +141,33 @@ Dev check in the app:
 Before uploading to S3 (LocalStack or production):
 
 - [ ] **Session key matches ingestion** — same value as `OPENF1_SESSION_KEY` and `VITE_SESSION_KEY`
-- [ ] **`circuit_name` → slug matches S3 key** — e.g. `Bahrain` → `bahrain` → `tracks/bahrain.glb` (confirm via `GET /api/sessions/{key}/track-asset` → `circuitSlug`)
+- [ ] **`circuit_name` → slug matches S3 key** — e.g. `Singapore` → `singapore` → `tracks/singapore.glb` (session `9161`)
 - [ ] **Cars on strip in x/z** — flat GLB aligns horizontally in the app before any Blender pass
 - [ ] **After Blender edit, x/z unchanged** — re-export without baking scale or shifting normalized horizontal coordinates
 
-## Reference run — Bahrain session 9161
+## Reference run — Singapore session 9161
 
 ```bash
-# Generate (requires OpenF1 auth for live/historical access)
-./tools/track-mesh/generate.sh --session-key 9161 --circuit-slug bahrain
+# One-shot publish (generate + LocalStack upload + Redis clear)
+./tools/track-mesh/publish.sh --session-key 9161
 
-# Upload to LocalStack (do not commit the GLB)
-export AWS_ACCESS_KEY_ID=test
-export AWS_SECRET_ACCESS_KEY=test
-export AWS_DEFAULT_REGION=us-east-1
+# Re-run from cache (after first fetch)
+./tools/track-mesh/publish.sh --session-key 9161 --use-cache
 
-aws --endpoint-url=http://localhost:4566 s3 cp \
-  tools/track-mesh/out/bahrain.glb \
-  s3://f1-visualizer-assets/tracks/bahrain.glb
+# Or generate only
+./tools/track-mesh/generate.sh --session-key 9161 --circuit-slug singapore
 
 # Verify API
 curl -s http://localhost:8080/api/sessions/9161/track-asset
 ```
 
-Run the app with `INGESTION_ENABLED=true OPENF1_SESSION_KEY=9161` and frontend session `9161`.
+Run the app with `INGESTION_ENABLED=true OPENF1_SESSION_KEY=9161` and frontend session `9161`. Use **Generate track** / **Reset session** in the Dev panel when `DEV_MODE=true`.
 
 ## Blender hand-off (manual elevation / banking)
 
 After generating the flat GLB:
 
-1. Import `bahrain.glb` in Blender.
+1. Import `singapore.glb` in Blender.
 2. Use OpenF1 normalized y from `{circuit}.elevation.json` (or a height map) to sculpt elevation.
 3. Add cross-slope / banking by hand on the mesh or with a curve modifier.
 4. Re-export GLB keeping **x and z** normalized in `[-1, 1]` — do not rescale or re-center horizontal coordinates; **y** may be modified for elevation and banking.

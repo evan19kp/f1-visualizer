@@ -82,6 +82,9 @@ app:
     allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8080}
   cors:
     allowed-origins: ${APP_CORS_ORIGINS:}
+  dev:
+    enabled: ${DEV_MODE:false}
+    track-mesh-root: ${TRACK_MESH_ROOT:tools/track-mesh}
 
 logging:
   level:

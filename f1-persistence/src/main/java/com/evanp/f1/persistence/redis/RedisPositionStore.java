@@ -103,6 +103,22 @@ public class RedisPositionStore implements PositionStore {
         redis.opsForValue().set(pollCursorKey(sessionKey), cursor.toString());
     }
 
+    @Override
+    public List<String> clearSession(long sessionKey) {
+        List<String> keys =
+                List.of(positionsKey(sessionKey), boundsKey(sessionKey), pollCursorKey(sessionKey));
+        List<String> cleared = new ArrayList<>(keys.size());
+        for (String key : keys) {
+            if (Boolean.TRUE.equals(redis.hasKey(key))) {
+                cleared.add(key);
+            }
+        }
+        if (!cleared.isEmpty()) {
+            redis.delete(cleared);
+        }
+        return cleared;
+    }
+
     static String positionsKey(long sessionKey) {
         return "f1:session:" + sessionKey + ":positions";
     }

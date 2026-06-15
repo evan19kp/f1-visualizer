@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { ConnectionBanner } from './components/hud/ConnectionBanner'
+import { DevToolsPanel } from './components/hud/DevToolsPanel'
 import { CameraSelector } from './components/hud/CameraSelector'
 import { GapTower } from './components/hud/GapTower'
 import { HudLayout } from './components/hud/HudLayout'
@@ -45,6 +46,7 @@ export default function App(): React.JSX.Element {
           {STATUS_LABEL[connectionStatus]}
         </span>
         <SessionPicker />
+        <DevToolsPanel />
         <span className="text-sm text-zinc-400">
           Drivers <span className="font-mono text-zinc-200">{positions.size}</span>
         </span>

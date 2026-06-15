@@ -1,5 +1,7 @@
 package com.evanp.f1.api.security;
 
+import com.evanp.f1.api.dev.DevModeFilter;
+import com.evanp.f1.api.dev.DevProperties;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,14 +23,20 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, DevProperties.class})
 public class SecurityConfig {
+
+    @Bean
+    DevModeFilter devModeFilter(DevProperties devProperties) {
+        return new DevModeFilter(devProperties);
+    }
 
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             Environment environment,
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            DevModeFilter devModeFilter,
             @Value("${app.cors.allowed-origins:}") String corsOrigins)
             throws Exception {
         // CSRF stays enabled in prod: JWT is sent via Authorization header (not cookies), so SPA
@@ -67,11 +75,14 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/sessions/*/stints/*")
                         .permitAll()
+                        .requestMatchers("/api/dev/**")
+                        .authenticated()
                         .requestMatchers("/api/**")
                         .authenticated()
                         .anyRequest()
                         .authenticated())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(devModeFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 
