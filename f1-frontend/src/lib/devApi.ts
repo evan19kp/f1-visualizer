@@ -10,6 +10,13 @@ export interface SessionResetResponse {
   reingestTriggered: boolean
 }
 
+export interface BackfillResponse {
+  sessionKey: number
+  samplesAppended: number
+  success: boolean
+  error: string
+}
+
 async function devPost<T>(path: string, authToken: string): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     method: 'POST',
@@ -42,4 +49,14 @@ export function resetSessionData(
   authToken: string,
 ): Promise<SessionResetResponse> {
   return devPost<SessionResetResponse>(`/api/dev/sessions/${sessionKey}/reset`, authToken)
+}
+
+export function backfillSessionHistory(
+  sessionKey: string,
+  authToken: string,
+): Promise<BackfillResponse> {
+  return devPost<BackfillResponse>(
+    `/api/dev/sessions/${sessionKey}/history/backfill`,
+    authToken,
+  )
 }

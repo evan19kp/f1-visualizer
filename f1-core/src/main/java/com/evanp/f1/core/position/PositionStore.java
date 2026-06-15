@@ -20,6 +20,14 @@ public interface PositionStore {
 
     void savePollCursor(long sessionKey, Instant cursor);
 
-    /** Remove positions, bounds, and poll cursor for a session. Returns deleted Redis key names. */
+    void appendHistory(long sessionKey, List<NormalizedPosition> positions);
+
+    List<NormalizedPosition> getFrameAt(long sessionKey, Instant instant);
+
+    boolean hasHistory(long sessionKey);
+
+    Optional<SessionTimeRange> getHistoryTimeRange(long sessionKey);
+
+    /** Remove positions, bounds, poll cursor, and history for a session. Returns deleted Redis key names. */
     List<String> clearSession(long sessionKey);
 }

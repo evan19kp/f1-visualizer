@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { ConnectionBanner } from './components/hud/ConnectionBanner'
 import { DevToolsPanel } from './components/hud/DevToolsPanel'
+import { PlaybackBar } from './components/hud/PlaybackBar'
 import { CameraSelector } from './components/hud/CameraSelector'
 import { GapTower } from './components/hud/GapTower'
 import { HudLayout } from './components/hud/HudLayout'
@@ -51,6 +52,7 @@ export default function App(): React.JSX.Element {
           Drivers <span className="font-mono text-zinc-200">{positions.size}</span>
         </span>
       </header>
+      <PlaybackBar sessionKey={sessionKey} />
       <ConnectionBanner />
       <main className="flex min-h-0 flex-1 p-2 sm:p-4">
         <HudLayout

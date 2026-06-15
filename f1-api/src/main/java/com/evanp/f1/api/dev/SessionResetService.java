@@ -3,6 +3,7 @@ package com.evanp.f1.api.dev;
 import com.evanp.f1.api.dto.SessionResetResponse;
 import com.evanp.f1.core.position.PositionStore;
 import com.evanp.f1.ingestion.IngestionService;
+import com.evanp.f1.ingestion.SessionKeyResolver;
 import com.evanp.f1.ingestion.config.IngestionProperties;
 import java.util.List;
 import org.slf4j.Logger;
@@ -17,14 +18,17 @@ public class SessionResetService {
     private final PositionStore positionStore;
     private final IngestionProperties ingestionProperties;
     private final IngestionService ingestionService;
+    private final SessionKeyResolver sessionKeyResolver;
 
     public SessionResetService(
             PositionStore positionStore,
             IngestionProperties ingestionProperties,
-            IngestionService ingestionService) {
+            IngestionService ingestionService,
+            SessionKeyResolver sessionKeyResolver) {
         this.positionStore = positionStore;
         this.ingestionProperties = ingestionProperties;
         this.ingestionService = ingestionService;
+        this.sessionKeyResolver = sessionKeyResolver;
     }
 
     public SessionResetResponse reset(long sessionKey) {
@@ -46,14 +50,6 @@ public class SessionResetService {
     }
 
     private boolean matchesIngestionKey(long sessionKey) {
-        String configKey = ingestionProperties.sessionKey();
-        if (configKey == null || configKey.isBlank()) {
-            return false;
-        }
-        try {
-            return Long.parseLong(configKey) == sessionKey;
-        } catch (NumberFormatException ignored) {
-            return false;
-        }
+        return sessionKeyResolver.resolveNumericKey(ingestionProperties.sessionKey()) == sessionKey;
     }
 }

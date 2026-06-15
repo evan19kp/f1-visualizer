@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ensureDevAuth } from '../../lib/auth'
-import { generateTrackMesh, resetSessionData } from '../../lib/devApi'
+import { backfillSessionHistory, generateTrackMesh, resetSessionData } from '../../lib/devApi'
 import { useRaceStore } from '../../store/raceStore'
 
 type ActionState = 'idle' | 'loading' | 'success' | 'error'
@@ -17,6 +17,7 @@ export function DevToolsPanel(): React.JSX.Element | null {
 
   const [generateState, setGenerateState] = useState<ActionState>('idle')
   const [resetState, setResetState] = useState<ActionState>('idle')
+  const [backfillState, setBackfillState] = useState<ActionState>('idle')
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
@@ -73,7 +74,33 @@ export function DevToolsPanel(): React.JSX.Element | null {
     }
   }
 
-  const busy = generateState === 'loading' || resetState === 'loading'
+  const runBackfill = async (): Promise<void> => {
+    if (!sessionKey || !authToken) {
+      setMessage('Dev auth required — set VITE_DEV_AUTOLOGIN and credentials, or log in.')
+      setBackfillState('error')
+      return
+    }
+
+    setBackfillState('loading')
+    setGenerateState('idle')
+    setResetState('idle')
+    setMessage(null)
+    try {
+      const result = await backfillSessionHistory(sessionKey, authToken)
+      setBackfillState('success')
+      setMessage(
+        result.success
+          ? `History backfilled (${result.samplesAppended} samples). Press Play on the timeline.`
+          : `Backfill failed: ${result.error}`,
+      )
+    } catch (error) {
+      setBackfillState('error')
+      setMessage(error instanceof Error ? error.message : 'History backfill failed')
+    }
+  }
+
+  const busy =
+    generateState === 'loading' || resetState === 'loading' || backfillState === 'loading'
 
   return (
     <div className="flex flex-col gap-1">
@@ -89,6 +116,14 @@ export function DevToolsPanel(): React.JSX.Element | null {
         </button>
         <button
           type="button"
+          onClick={() => void runBackfill()}
+          disabled={busy || !sessionKey}
+          className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-200 transition-colors enabled:hover:border-zinc-500 enabled:hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {backfillState === 'loading' ? 'Backfilling…' : 'Backfill history'}
+        </button>
+        <button
+          type="button"
           onClick={() => void runReset()}
           disabled={busy || !sessionKey}
           className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-200 transition-colors enabled:hover:border-zinc-500 enabled:hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
@@ -99,7 +134,9 @@ export function DevToolsPanel(): React.JSX.Element | null {
       {message && (
         <p
           className={`max-w-md text-xs ${
-            generateState === 'error' || resetState === 'error' ? 'text-red-400' : 'text-zinc-400'
+            generateState === 'error' || resetState === 'error' || backfillState === 'error'
+              ? 'text-red-400'
+              : 'text-zinc-400'
           }`}
         >
           {message}

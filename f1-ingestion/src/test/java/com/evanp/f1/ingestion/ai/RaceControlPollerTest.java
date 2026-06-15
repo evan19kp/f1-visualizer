@@ -159,7 +159,7 @@ class RaceControlPollerTest {
         poller = new RaceControlPoller(openF1Client, detector, raceEngineerService, properties);
 
         OpenF1SessionResponse session = new OpenF1SessionResponse(
-                SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP);
+                SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP, null);
         when(openF1Client.fetchSession("latest")).thenReturn(Optional.of(session));
         when(openF1Client.fetchRaceControl(eq("latest"), any())).thenReturn(List.of());
 

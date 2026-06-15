@@ -5,6 +5,7 @@ import {
   isValidSessionKey,
   persistSessionKey,
 } from '../../config/session'
+import { useIngestionStatus } from '../../hooks/usePlayback'
 import { useRaceStore } from '../../store/raceStore'
 import type { RaceSession } from '../../types/session'
 
@@ -21,6 +22,8 @@ export function SessionPicker(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [sessions, setSessions] = useState<RaceSession[]>([])
   const [listError, setListError] = useState<string | null>(null)
+  const ingestionStatus = useIngestionStatus()
+  const configuredKey = ingestionStatus?.configuredSessionKey ?? DEFAULT_SESSION_KEY
 
   useEffect(() => {
     setInput(sessionKey)
@@ -64,7 +67,10 @@ export function SessionPicker(): React.JSX.Element {
 
   const trimmed = input.trim()
   const unchanged = trimmed === sessionKey
-  const showIngestionWarning = Boolean(sessionKey) && sessionKey !== DEFAULT_SESSION_KEY
+  const showIngestionWarning =
+    Boolean(sessionKey) &&
+    configuredKey !== sessionKey &&
+    String(ingestionStatus?.resolvedSessionKey ?? '') !== sessionKey
   const hasSessions = sessions.length > 0
   const sessionOptions: RaceSession[] = hasSessions
     ? sessions.some((session) => String(session.sessionKey) === sessionKey)
@@ -117,11 +123,17 @@ export function SessionPicker(): React.JSX.Element {
             onChange={handleSelectChange}
             className="max-w-xs rounded border border-zinc-700 bg-zinc-900 px-2 py-1 font-mono text-sm text-zinc-100 outline-none focus:border-zinc-500"
           >
-            {sessionOptions.map((session) => (
-              <option key={session.sessionKey} value={String(session.sessionKey)}>
-                {formatSessionLabel(session)}
-              </option>
-            ))}
+            {sessionOptions.map((session) => {
+              const key = String(session.sessionKey)
+              const isConfigured = key === configuredKey
+              return (
+                <option key={session.sessionKey} value={key}>
+                  {isConfigured ? '● ' : ''}
+                  {formatSessionLabel(session)}
+                  {isConfigured ? ' (ingestion)' : ''}
+                </option>
+              )
+            })}
           </select>
         ) : (
           <>

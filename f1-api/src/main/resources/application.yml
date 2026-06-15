@@ -73,7 +73,7 @@ app:
     poll-interval-ms: ${OPENF1_POLL_INTERVAL_MS:2500}
   ingestion:
     enabled: ${INGESTION_ENABLED:false}
-    session-key: ${OPENF1_SESSION_KEY:latest}
+    session-key: ${OPENF1_SESSION_KEY:9161}
   s3:
     bucket: ${S3_BUCKET:f1-visualizer-assets}
     region: ${AWS_REGION:us-east-1}
