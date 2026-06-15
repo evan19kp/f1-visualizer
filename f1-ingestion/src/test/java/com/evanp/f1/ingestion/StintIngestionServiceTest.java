@@ -40,7 +40,7 @@ class StintIngestionServiceTest {
         stintIngestionService = new StintIngestionService(
                 openF1Client,
                 stintStore,
-                new IngestionProperties(true, String.valueOf(SESSION_KEY)),
+                new IngestionProperties(true, String.valueOf(SESSION_KEY), false),
                 sessionKeyResolver);
     }
 

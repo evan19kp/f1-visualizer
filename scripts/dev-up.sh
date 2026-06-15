@@ -7,14 +7,16 @@ cd "$ROOT"
 echo "Starting Docker services..."
 docker compose up -d
 
-CACHE_GLB="$ROOT/tools/track-mesh/out/bahrain.glb"
 SESSION_KEY="${OPENF1_SESSION_KEY:-9161}"
-
-if [[ -f "$CACHE_GLB" ]]; then
+CACHE_JSON="$ROOT/tools/track-mesh/cache/${SESSION_KEY}.json"
+PUBLISH_ARGS=(--session-key "$SESSION_KEY" --circuit-slug singapore)
+if [[ -f "$CACHE_JSON" ]]; then
   echo "Publishing cached track mesh for session ${SESSION_KEY}..."
-  "$ROOT/tools/track-mesh/publish.sh" --session-key "$SESSION_KEY" --use-cache
+  PUBLISH_ARGS+=(--use-cache)
+  "$ROOT/tools/track-mesh/publish.sh" "${PUBLISH_ARGS[@]}" || echo "Track publish failed — run again after API is up or fetch cache first."
 else
-  echo "No cached GLB at tools/track-mesh/out/bahrain.glb — skip publish or run generate.sh first."
+  echo "No OpenF1 cache at ${CACHE_JSON} — fetching track mesh for session ${SESSION_KEY} (first run)..."
+  "$ROOT/tools/track-mesh/publish.sh" "${PUBLISH_ARGS[@]}" || echo "Track publish failed — cars still load; mesh may be procedural until publish succeeds."
 fi
 
 cat <<EOF
@@ -39,6 +41,6 @@ export VITE_DEV_AUTH_PASS=changeme
 npm install
 npm run dev
 
-Then open http://localhost:5173 — use Dev → Backfill history → Play on the timeline.
+Then open http://localhost:5173 — session history loads automatically on API startup (~30s). Press Play on the timeline when it appears.
 
 EOF

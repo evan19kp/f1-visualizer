@@ -43,8 +43,8 @@ function ingestionMessage(
   return {
     title: 'Waiting for position data…',
     hints: [
-      'Use Dev Tools → Backfill history, then press Play on the timeline',
-      'Ingestion polls every few seconds — data should appear within ~10s',
+      'Session history loads automatically when the API starts (about 30s for session 9161)',
+      'The timeline and cars appear once bootstrap finishes — no Dev Tools required',
     ],
   }
 }
