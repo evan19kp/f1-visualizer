@@ -30,6 +30,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(OutputCaptureExtension.class)
 class OpenF1ClientTest {
@@ -49,7 +50,15 @@ class OpenF1ClientTest {
 
     private OpenF1Client newClient(RestClient.Builder builder, String token, String user, String pass) {
         return new OpenF1Client(
-                builder, "http://localhost", token, user, pass, "http://localhost/token", 30_000, clock,
+                builder,
+                "http://localhost",
+                token,
+                user,
+                pass,
+                "http://localhost/token",
+                30_000,
+                60_000,
+                clock,
                 ingestionStatusService);
     }
 
@@ -317,5 +326,31 @@ class OpenF1ClientTest {
 
         assertTrue(client.fetchStints("9161", Optional.empty()).isEmpty());
         assertFalse(output.getAll().contains("OpenF1 /stints request failed"));
+    }
+
+    @Test
+    void fetchLocations_onRateLimit_entersBackoffAndSkipsSubsequentCalls() {
+        server.expect(requestTo("http://localhost/location?session_key=9161"))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"detail\":\"Rate limit exceeded\"}"));
+
+        assertTrue(client.fetchLocations("9161", Optional.empty(), Optional.empty()).isEmpty());
+        verify(ingestionStatusService).recordOpenF1Error("openf1_rate_limited");
+
+        assertTrue(client.isRateLimited());
+        assertTrue(client.fetchLocations("9161", Optional.empty(), Optional.empty()).isEmpty());
+        server.verify();
+    }
+
+    @Test
+    void fetchSession_onRateLimit_recordsRateLimited() {
+        server.expect(requestTo("http://localhost/sessions?session_key=9161"))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"detail\":\"Rate limit exceeded\"}"));
+
+        assertTrue(client.fetchSession("9161").isEmpty());
+        verify(ingestionStatusService).recordOpenF1Error("openf1_rate_limited");
     }
 }

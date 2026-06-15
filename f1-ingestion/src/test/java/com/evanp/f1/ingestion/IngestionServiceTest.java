@@ -61,7 +61,8 @@ class IngestionServiceTest {
 
     @BeforeEach
     void setUp() {
-        sessionMetadataSync = new SessionMetadataSync(openF1Client, raceSessionRepository, FIXED_CLOCK);
+        sessionMetadataSync =
+                new SessionMetadataSync(openF1Client, raceSessionRepository, sessionKeyResolver, FIXED_CLOCK);
         when(sessionKeyResolver.resolveNumericKey(String.valueOf(SESSION_KEY))).thenReturn(SESSION_KEY);
         ingestionService = new IngestionService(
                 openF1Client,
@@ -71,7 +72,8 @@ class IngestionServiceTest {
                 FIXED_CLOCK,
                 sessionMetadataSync,
                 ingestionStatusService,
-                sessionKeyResolver);
+                sessionKeyResolver,
+                raceSessionRepository);
     }
 
     @Test
@@ -126,7 +128,8 @@ class IngestionServiceTest {
                 FIXED_CLOCK,
                 sessionMetadataSync,
                 ingestionStatusService,
-                sessionKeyResolver);
+                sessionKeyResolver,
+                raceSessionRepository);
 
         Instant later = TIMESTAMP.plusSeconds(1);
         SessionBounds oldBounds = SessionBounds.empty().expand(0.0, 0.0, 0.0).expand(10.0, 0.0, 0.0);
@@ -178,6 +181,22 @@ class IngestionServiceTest {
         Instant expectedUntil = TIMESTAMP.plus(IngestionConstants.POLL_WINDOW);
         assertEquals(Optional.of(expectedUntil), until);
         verify(positionStore).savePollCursor(SESSION_KEY, expectedUntil);
+    }
+
+    @Test
+    void pollOnce_usesDbDateStartWhenPollCursorMissing() {
+        RaceSessionEntity existing = RaceSessionEntity.newInstance();
+        existing.setSessionKey(SESSION_KEY);
+        existing.setDateStart(TIMESTAMP);
+        when(raceSessionRepository.findById(SESSION_KEY)).thenReturn(Optional.of(existing));
+        when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.empty());
+        when(openF1Client.fetchLocations(
+                        eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), any(Optional.class)))
+                .thenReturn(List.of());
+
+        ingestionService.pollOnce();
+
+        verify(openF1Client, never()).fetchSession(any());
     }
 
     @SuppressWarnings("unchecked")

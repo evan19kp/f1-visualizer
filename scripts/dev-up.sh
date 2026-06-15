@@ -24,6 +24,7 @@ Copy into terminal 1 (API):
 export DEV_MODE=true
 export INGESTION_ENABLED=true
 export OPENF1_SESSION_KEY=${SESSION_KEY}
+export OPENF1_POLL_INTERVAL_MS=7000
 export AWS_ENDPOINT_URL=http://localhost:4566
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test

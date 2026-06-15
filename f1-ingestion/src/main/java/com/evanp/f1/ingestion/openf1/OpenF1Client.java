@@ -33,9 +33,11 @@ public class OpenF1Client {
     private final String password;
     private final String tokenUrl;
     private final long tokenFailureCooldownMs;
+    private final long rateLimitBackoffMs;
     private final Clock clock;
     private final IngestionStatusService ingestionStatusService;
     private volatile CachedToken cachedToken = CachedToken.empty();
+    private volatile Instant rateLimitedUntil = Instant.EPOCH;
 
     public OpenF1Client(
             RestClient.Builder builder,
@@ -45,6 +47,7 @@ public class OpenF1Client {
             @Value("${app.openf1.password:}") String password,
             @Value("${app.openf1.token-url:https://api.openf1.org/token}") String tokenUrl,
             @Value("${app.openf1.token-failure-cooldown-ms:30000}") long tokenFailureCooldownMs,
+            @Value("${app.openf1.rate-limit-backoff-ms:60000}") long rateLimitBackoffMs,
             Clock clock,
             @Lazy IngestionStatusService ingestionStatusService) {
         this.restClient = builder.baseUrl(baseUrl).build();
@@ -53,12 +56,20 @@ public class OpenF1Client {
         this.password = password;
         this.tokenUrl = tokenUrl;
         this.tokenFailureCooldownMs = tokenFailureCooldownMs;
+        this.rateLimitBackoffMs = rateLimitBackoffMs;
         this.clock = clock;
         this.ingestionStatusService = ingestionStatusService;
     }
 
+    public boolean isRateLimited() {
+        return clock.instant().isBefore(rateLimitedUntil);
+    }
+
     public List<OpenF1LocationResponse> fetchLocations(
             String sessionKey, Optional<Instant> since, Optional<Instant> until) {
+        if (isRateLimited()) {
+            return List.of();
+        }
         try {
             RestClient.RequestHeadersSpec<?> request =
                     restClient
@@ -78,16 +89,14 @@ public class OpenF1Client {
 
             return locations != null ? locations : List.of();
         } catch (RestClientException e) {
-            if (isNotFound(e)) {
-                return List.of();
-            }
-            log.error("OpenF1 /location request failed for session {}: {}", sessionKey, e.getMessage());
-            recordOpenF1Error(e);
-            return List.of();
+            return handleRestClientError("/location", sessionKey, e, List.of());
         }
     }
 
     public List<OpenF1RaceControlResponse> fetchRaceControl(String sessionKey, Optional<Instant> since) {
+        if (isRateLimited()) {
+            return List.of();
+        }
         try {
             RestClient.RequestHeadersSpec<?> request = restClient
                     .get()
@@ -104,15 +113,14 @@ public class OpenF1Client {
 
             return messages != null ? messages : List.of();
         } catch (RestClientException e) {
-            if (isNotFound(e)) {
-                return List.of();
-            }
-            log.error("OpenF1 /race_control request failed for session {}: {}", sessionKey, e.getMessage());
-            return List.of();
+            return handleRestClientError("/race_control", sessionKey, e, List.of());
         }
     }
 
     public List<OpenF1StintResponse> fetchStints(String sessionKey, @SuppressWarnings("unused") Optional<Instant> since) {
+        if (isRateLimited()) {
+            return List.of();
+        }
         try {
             RestClient.RequestHeadersSpec<?> request = restClient
                     .get()
@@ -128,15 +136,14 @@ public class OpenF1Client {
 
             return stints != null ? stints : List.of();
         } catch (RestClientException e) {
-            if (isNotFound(e)) {
-                return List.of();
-            }
-            log.error("OpenF1 /stints request failed for session {}: {}", sessionKey, e.getMessage());
-            return List.of();
+            return handleRestClientError("/stints", sessionKey, e, List.of());
         }
     }
 
     public Optional<OpenF1SessionResponse> fetchSession(String sessionKey) {
+        if (isRateLimited()) {
+            return Optional.empty();
+        }
         try {
             RestClient.RequestHeadersSpec<?> request = restClient
                     .get()
@@ -152,12 +159,44 @@ public class OpenF1Client {
             }
             return Optional.of(sessions[0]);
         } catch (RestClientException e) {
-            if (isNotFound(e)) {
-                return Optional.empty();
-            }
-            log.error("OpenF1 /sessions request failed for session {}: {}", sessionKey, e.getMessage());
-            return Optional.empty();
+            return handleRestClientError("/sessions", sessionKey, e, Optional.empty());
         }
+    }
+
+    private <T> T handleRestClientError(String endpoint, String sessionKey, RestClientException e, T emptyResult) {
+        if (isNotFound(e)) {
+            return emptyResult;
+        }
+        if (e instanceof RestClientResponseException responseException
+                && responseException.getStatusCode().isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)) {
+            enterRateLimitBackoff(responseException);
+            return emptyResult;
+        }
+        log.error("OpenF1 {} request failed for session {}: {}", endpoint, sessionKey, e.getMessage());
+        recordOpenF1Error(e);
+        return emptyResult;
+    }
+
+    private void enterRateLimitBackoff(RestClientResponseException responseException) {
+        Instant now = clock.instant();
+        Instant backoffUntil = now.plusMillis(rateLimitBackoffMs);
+        String retryAfter = responseException.getResponseHeaders().getFirst(HttpHeaders.RETRY_AFTER);
+        if (StringUtils.hasText(retryAfter)) {
+            try {
+                long seconds = Long.parseLong(retryAfter.trim());
+                backoffUntil = now.plusSeconds(Math.max(1L, seconds));
+            } catch (NumberFormatException ignored) {
+                // keep default backoff
+            }
+        }
+        if (now.isBefore(rateLimitedUntil)) {
+            rateLimitedUntil = backoffUntil.isAfter(rateLimitedUntil) ? backoffUntil : rateLimitedUntil;
+            ingestionStatusService.recordOpenF1Error("openf1_rate_limited");
+            return;
+        }
+        rateLimitedUntil = backoffUntil;
+        log.warn("OpenF1 rate limit hit; backing off until {}", backoffUntil);
+        ingestionStatusService.recordOpenF1Error("openf1_rate_limited");
     }
 
     private RestClient.RequestHeadersSpec<?> authorize(RestClient.RequestHeadersSpec<?> request) {

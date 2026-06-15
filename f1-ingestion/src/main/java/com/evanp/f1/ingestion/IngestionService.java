@@ -9,6 +9,8 @@ import com.evanp.f1.ingestion.normalize.NormalizationResult;
 import com.evanp.f1.ingestion.openf1.OpenF1Client;
 import com.evanp.f1.ingestion.openf1.OpenF1LocationResponse;
 import com.evanp.f1.ingestion.openf1.OpenF1SessionResponse;
+import com.evanp.f1.persistence.session.RaceSessionEntity;
+import com.evanp.f1.persistence.session.RaceSessionRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -33,6 +35,7 @@ public class IngestionService {
     private final SessionMetadataSync sessionMetadataSync;
     private final IngestionStatusService ingestionStatusService;
     private final SessionKeyResolver sessionKeyResolver;
+    private final RaceSessionRepository raceSessionRepository;
 
     public IngestionService(
             OpenF1Client openF1Client,
@@ -42,7 +45,8 @@ public class IngestionService {
             Clock clock,
             SessionMetadataSync sessionMetadataSync,
             IngestionStatusService ingestionStatusService,
-            SessionKeyResolver sessionKeyResolver) {
+            SessionKeyResolver sessionKeyResolver,
+            RaceSessionRepository raceSessionRepository) {
         this.openF1Client = openF1Client;
         this.coordinateNormalizer = coordinateNormalizer;
         this.positionStore = positionStore;
@@ -51,6 +55,7 @@ public class IngestionService {
         this.sessionMetadataSync = sessionMetadataSync;
         this.ingestionStatusService = ingestionStatusService;
         this.sessionKeyResolver = sessionKeyResolver;
+        this.raceSessionRepository = raceSessionRepository;
     }
 
     public void pollOnce() {
@@ -143,9 +148,10 @@ public class IngestionService {
             if (cursor.isPresent()) {
                 return cursor;
             }
-            return openF1Client
-                    .fetchSession(configKey)
-                    .map(OpenF1SessionResponse::dateStart)
+            return raceSessionRepository
+                    .findById(cursorKey)
+                    .map(RaceSessionEntity::getDateStart)
+                    .or(() -> openF1Client.fetchSession(configKey).map(OpenF1SessionResponse::dateStart))
                     .or(() -> Optional.of(Instant.EPOCH));
         }
         return Optional.of(Instant.EPOCH);

@@ -69,8 +69,12 @@ app:
     username: ${OPENF1_USERNAME:}
     password: ${OPENF1_PASSWORD:}
     token-failure-cooldown-ms: ${OPENF1_TOKEN_FAILURE_COOLDOWN_MS:30000}
-    # OpenF1 free tier allows max 30 requests/minute; 2500ms (~24/min) stays under the cap.
-    poll-interval-ms: ${OPENF1_POLL_INTERVAL_MS:2500}
+    # OpenF1 free tier: max 30 requests/minute. Each location tick also triggers /sessions
+    # (metadata sync) until cached in Postgres; stints poll on a separate slower schedule.
+    # Default 7000ms location tick ≈ 8.6 ticks/min × 1–2 calls ≈ under 30/min with margin.
+    poll-interval-ms: ${OPENF1_POLL_INTERVAL_MS:7000}
+    stint-poll-interval-ms: ${OPENF1_STINT_POLL_INTERVAL_MS:30000}
+    rate-limit-backoff-ms: ${OPENF1_RATE_LIMIT_BACKOFF_MS:60000}
   ingestion:
     enabled: ${INGESTION_ENABLED:false}
     session-key: ${OPENF1_SESSION_KEY:9161}

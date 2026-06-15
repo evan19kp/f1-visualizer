@@ -95,7 +95,9 @@ Copy `.env.example` to `.env` at the repo root for a ready-made local profile (n
 | `OPENF1_ACCESS_TOKEN` | — | Optional bearer token for authenticated OpenF1 REST access |
 | `OPENF1_USERNAME` / `OPENF1_PASSWORD` | — | Optional OpenF1 credentials; backend exchanges them for a bearer token |
 | `OPENF1_TOKEN_FAILURE_COOLDOWN_MS` | `30000` | Delay before retrying failed OpenF1 token requests |
-| `OPENF1_POLL_INTERVAL_MS` | `2500` | ~24 req/min; OpenF1 free tier caps at 30/min |
+| `OPENF1_POLL_INTERVAL_MS` | `7000` | Location poll interval; ~1 OpenF1 call/tick after metadata cached (~8.6/min) |
+| `OPENF1_STINT_POLL_INTERVAL_MS` | `30000` | Stint poll interval (~2 req/min); decoupled from location |
+| `OPENF1_RATE_LIMIT_BACKOFF_MS` | `60000` | Pause OpenF1 calls after 429 until window resets |
 | `SERVER_PORT` | `8080` | REST + STOMP endpoint |
 | `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / `changeme` | Dev login; pair with frontend dev auto-login |
 | `AI_ENABLED` | `false` | Enables race-control poller + GPT insights |
@@ -226,6 +228,18 @@ Restart the API so ingestion resets its poll window.
 ### OpenF1 `404` — no results
 
 Normal when a time window has no location data. The API treats this as an empty batch (no error spam). See PR #20 for the client-side handling.
+
+### OpenF1 `429` — rate limit exceeded
+
+OpenF1 free tier allows **30 requests/minute**. Ingestion uses separate schedulers for location (~7s) and stints (30s); after the first metadata sync, steady-state is ~10 req/min.
+
+If you hit 429:
+
+1. Stop the API for ~60 seconds to let the window reset.
+2. Restart with defaults (backoff is automatic) or raise the interval: `OPENF1_POLL_INTERVAL_MS=9000`
+3. Avoid parallel OpenF1 consumers (track-mesh generate, dev backfill, second API instance) on the same IP.
+
+Check `GET /api/ingestion/status` — `lastError` shows `openf1_rate_limited` when throttled.
 
 ### STOMP shows **Disconnected**
 

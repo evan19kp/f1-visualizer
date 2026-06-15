@@ -30,16 +30,23 @@ class StintIngestionServiceTest {
     @Mock
     private StintStore stintStore;
 
+    @Mock
+    private SessionKeyResolver sessionKeyResolver;
+
     private StintIngestionService stintIngestionService;
 
     @BeforeEach
     void setUp() {
         stintIngestionService = new StintIngestionService(
-                openF1Client, stintStore, new IngestionProperties(true, String.valueOf(SESSION_KEY)));
+                openF1Client,
+                stintStore,
+                new IngestionProperties(true, String.valueOf(SESSION_KEY)),
+                sessionKeyResolver);
     }
 
     @Test
     void pollOnce_fetchesStintsAndSavesLatestPerDriver() {
+        when(sessionKeyResolver.resolveNumericKey(String.valueOf(SESSION_KEY))).thenReturn(SESSION_KEY);
         OpenF1StintResponse older =
                 new OpenF1StintResponse("SOFT", 44, 20, 1, 1219L, SESSION_KEY, 1, 0);
         OpenF1StintResponse latest =
