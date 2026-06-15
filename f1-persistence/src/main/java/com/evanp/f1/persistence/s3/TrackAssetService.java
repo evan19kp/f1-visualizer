@@ -6,4 +6,6 @@ import java.util.Optional;
 public interface TrackAssetService {
 
     Optional<URL> getPresignedTrackUrl(String circuitSlug);
+
+    void uploadTrackMesh(String circuitSlug, java.nio.file.Path glbPath);
 }

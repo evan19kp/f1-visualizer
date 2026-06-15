@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
@@ -85,5 +86,17 @@ class S3TrackAssetServiceTest {
         assertThat(service.getPresignedTrackUrl("")).isEmpty();
         assertThat(service.getPresignedTrackUrl("   ")).isEmpty();
         verify(s3Client, never()).headObject(any(HeadObjectRequest.class));
+    }
+
+    @Test
+    void uploadTrackMesh_putsObjectAtExpectedKey() throws Exception {
+        java.nio.file.Path glb = java.nio.file.Files.createTempFile("track", ".glb");
+        try {
+            service.uploadTrackMesh("singapore", glb);
+
+            verify(s3Client).putObject(any(software.amazon.awssdk.services.s3.model.PutObjectRequest.class), any(RequestBody.class));
+        } finally {
+            java.nio.file.Files.deleteIfExists(glb);
+        }
     }
 }

@@ -19,4 +19,7 @@ public interface PositionStore {
     Optional<Instant> getPollCursor(long sessionKey);
 
     void savePollCursor(long sessionKey, Instant cursor);
+
+    /** Remove positions, bounds, and poll cursor for a session. Returns deleted Redis key names. */
+    List<String> clearSession(long sessionKey);
 }

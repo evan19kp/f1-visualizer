@@ -187,4 +187,15 @@ class RedisPositionStoreTest {
 
         assertThat(retrieved).contains(cursor);
     }
+
+    @Test
+    void clearSession_deletesExpectedKeys() {
+        List<String> keys =
+                List.of("f1:session:" + SESSION_KEY + ":positions", "f1:session:" + SESSION_KEY + ":bounds", "f1:session:" + SESSION_KEY + ":poll_cursor");
+
+        List<String> cleared = store.clearSession(SESSION_KEY);
+
+        verify(redisTemplate).delete(keys);
+        assertThat(cleared).isEqualTo(keys);
+    }
 }

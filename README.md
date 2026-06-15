@@ -33,7 +33,7 @@ Postgres listens on **host port 5433** (see `docker-compose.yml`: `5433:5432`) t
 INGESTION_ENABLED=true OPENF1_SESSION_KEY=9161 ./mvnw spring-boot:run -pl f1-api
 ```
 
-`9161` is the 2024 Bahrain GP race — a reliable demo session. Wait for `Started F1VisualizerApplication`. No API keys are required for the basic 3D demo.
+`9161` is Singapore GP qualifying 2023 — a reliable demo session. Wait for `Started F1VisualizerApplication`. No API keys are required for the basic 3D demo.
 
 Optional: copy `.env.example` to `.env` at the repo root and export the vars (`set -a && source .env && set +a`), or pass them inline as above.
 
@@ -89,6 +89,8 @@ Copy `.env.example` to `.env` at the repo root for a ready-made local profile (n
 | `AWS_REGION` / `S3_BUCKET` | `us-east-1` / `f1-visualizer-assets` | Track mesh assets (optional) |
 | `AWS_ENDPOINT_URL` | — | LocalStack S3 (`http://localhost:4566`) |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | — | LocalStack: `test` / `test` |
+| `DEV_MODE` | `false` | Set `true` to enable dev API (`POST /api/dev/**`) |
+| `TRACK_MESH_ROOT` | `tools/track-mesh` | Path to Python track mesh generator (dev generate endpoint) |
 
 ### Frontend (`f1-frontend/.env`)
 
@@ -100,7 +102,24 @@ Copy `f1-frontend/.env.example` to `.env` and adjust as needed.
 | `VITE_WS_URL` | `http://localhost:8080/ws` | STOMP endpoint (SockJS) |
 | `VITE_API_URL` | *(empty)* | Empty = Vite dev proxy to `:8080` |
 | `VITE_DEV_AUTOLOGIN` | — | Set `true` for dev JWT auto-login |
-| `VITE_DEV_AUTH_USER` / `VITE_DEV_AUTH_PASS` | — | Credentials for dev auto-login |
+| `VITE_DEV_AUTH_USER` / `VITE_DEV_AUTH_PASS` | — | Credentials for dev auto-login (required for Dev Tools panel) |
+
+### Track mesh workflow (dev)
+
+**In the app** (with `DEV_MODE=true` on the API and dev auto-login in the frontend):
+
+1. Start LocalStack: `docker compose up -d localstack`
+2. Run API with dev + S3:  
+   `DEV_MODE=true INGESTION_ENABLED=true OPENF1_SESSION_KEY=9161 AWS_ENDPOINT_URL=http://localhost:4566 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test ./mvnw spring-boot:run -pl f1-api`
+3. In the frontend header, use **Generate track** and **Reset session** (Dev panel, visible in `npm run dev`).
+
+**One-shot script** (no UI):
+
+```bash
+./tools/track-mesh/publish.sh --session-key 9161 --use-cache
+```
+
+See [assets/tracks/README.md](assets/tracks/README.md) and [tools/track-mesh/README.md](tools/track-mesh/README.md).
 
 ## AI & auth
 
@@ -210,10 +229,10 @@ The app defaults to port **5433**, not 5432. `docker-compose.yml` maps `5433:543
 
 Cars drift off the GLB ribbon or the mesh sits in the wrong place:
 
-- Regenerate with [`tools/track-mesh/generate.sh`](tools/track-mesh/generate.sh) using the **same session key** as ingestion (`OPENF1_SESSION_KEY` / `VITE_SESSION_KEY`).
-- Bounds must match ingestion — the generator normalizes over all drivers in that session; a different session or partial sample set shifts x/z.
-- Confirm the S3 slug matches `race_sessions.circuit_name` (e.g. `Bahrain` → `tracks/bahrain.glb`).
-- Re-upload and hard-refresh the frontend. See [assets/tracks/README.md](assets/tracks/README.md) and [tools/track-mesh/README.md](tools/track-mesh/README.md).
+- Use **Reset session** in the Dev Tools panel (or `publish.sh`, which clears Redis), then wait for re-ingest when `OPENF1_SESSION_KEY` matches.
+- Regenerate with **Generate track** in the app, or [`publish.sh`](tools/track-mesh/publish.sh) / [`generate.sh`](tools/track-mesh/generate.sh) using the **same session key** as ingestion.
+- Confirm the S3 slug matches `race_sessions.circuit_name` (session `9161` → `Singapore` → `tracks/singapore.glb`).
+- Hard-refresh the frontend after upload. See [assets/tracks/README.md](assets/tracks/README.md).
 
 ### No track mesh (procedural fallback)
 
@@ -225,6 +244,16 @@ The app shows a flat procedural track instead of a GLB:
 - **Session row:** run ingestion once with `INGESTION_ENABLED=true` so OpenF1 metadata populates `race_sessions`.
 
 Upload workflow: [assets/tracks/README.md](assets/tracks/README.md). Generate meshes: [tools/track-mesh/README.md](tools/track-mesh/README.md).
+
+### Integration checklist (session 9161 / Singapore)
+
+- [ ] `docker compose up -d` (postgres, redis, localstack)
+- [ ] API: `DEV_MODE=true`, `INGESTION_ENABLED=true`, `OPENF1_SESSION_KEY=9161`, LocalStack AWS env vars
+- [ ] Frontend: `VITE_DEV_AUTOLOGIN=true` + admin credentials; session `9161`
+- [ ] **Generate track** (Dev panel) or `./tools/track-mesh/publish.sh --session-key 9161 --use-cache`
+- [ ] **Reset session** if car positions are stale after normalization changes
+- [ ] `curl -s http://localhost:8080/api/sessions/9161/track-asset` returns 200 with `circuitSlug: singapore`
+- [ ] Cars align on the GLB ribbon in x/z
 
 ## Tests
 

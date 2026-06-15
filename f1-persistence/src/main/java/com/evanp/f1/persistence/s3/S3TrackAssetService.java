@@ -1,13 +1,16 @@
 package com.evanp.f1.persistence.s3;
 
 import java.net.URL;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -48,6 +51,20 @@ public class S3TrackAssetService implements TrackAssetService {
                 .build();
 
         return Optional.of(s3Presigner.presignGetObject(presignRequest).url());
+    }
+
+    @Override
+    public void uploadTrackMesh(String circuitSlug, Path glbPath) {
+        if (circuitSlug == null || circuitSlug.isBlank()) {
+            throw new IllegalArgumentException("circuitSlug is required");
+        }
+        String objectKey = "tracks/" + circuitSlug + ".glb";
+        s3Client.putObject(
+                PutObjectRequest.builder()
+                        .bucket(properties.bucket())
+                        .key(objectKey)
+                        .build(),
+                RequestBody.fromFile(glbPath));
     }
 
     private boolean objectExists(String objectKey) {

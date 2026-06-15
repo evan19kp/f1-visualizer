@@ -12,6 +12,7 @@ interface RaceState {
   selectedDriver: number | null
   cameraMode: CameraMode
   authToken: string | null
+  trackAssetVersion: number
   setSessionKey: (key: string) => void
   updatePositions: (batch: Position[]) => void
   setSelectedDriver: (driver: number | null) => void
@@ -19,6 +20,8 @@ interface RaceState {
   setPositionsFetchError: (error: string | null) => void
   setCameraMode: (mode: CameraMode) => void
   setAuthToken: (token: string | null) => void
+  bumpTrackAssetVersion: () => void
+  clearPositions: () => void
 }
 
 export const useRaceStore = create<RaceState>((set) => ({
@@ -29,6 +32,7 @@ export const useRaceStore = create<RaceState>((set) => ({
   selectedDriver: null,
   cameraMode: 'orbit',
   authToken: null,
+  trackAssetVersion: 0,
   setSessionKey: (key) =>
     set({ sessionKey: key, positions: new Map(), positionsFetchError: null }),
   updatePositions: (batch) =>
@@ -44,4 +48,7 @@ export const useRaceStore = create<RaceState>((set) => ({
   setPositionsFetchError: (error) => set({ positionsFetchError: error }),
   setCameraMode: (mode) => set({ cameraMode: mode }),
   setAuthToken: (token) => set({ authToken: token }),
+  bumpTrackAssetVersion: () =>
+    set((state) => ({ trackAssetVersion: state.trackAssetVersion + 1 })),
+  clearPositions: () => set({ positions: new Map() }),
 }))

@@ -169,6 +169,7 @@ function ProceduralTrackMesh({
 
 export function TrackMesh(): React.JSX.Element {
   const sessionKey = useRaceStore((state) => state.sessionKey)
+  const trackAssetVersion = useRaceStore((state) => state.trackAssetVersion)
   const positions = useRaceStore((state) => state.positions)
   const [trackAssetUrl, setTrackAssetUrl] = useState<string | null>(null)
 
@@ -240,7 +241,7 @@ export function TrackMesh(): React.JSX.Element {
     })()
 
     return () => controller.abort()
-  }, [sessionKey])
+  }, [sessionKey, trackAssetVersion])
 
   useEffect(() => {
     if (rafRef.current !== null) {
