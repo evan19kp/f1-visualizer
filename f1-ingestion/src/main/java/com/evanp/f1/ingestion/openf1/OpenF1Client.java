@@ -180,7 +180,8 @@ public class OpenF1Client {
     private void enterRateLimitBackoff(RestClientResponseException responseException) {
         Instant now = clock.instant();
         Instant backoffUntil = now.plusMillis(rateLimitBackoffMs);
-        String retryAfter = responseException.getResponseHeaders().getFirst(HttpHeaders.RETRY_AFTER);
+        var headers = responseException.getResponseHeaders();
+        String retryAfter = headers != null ? headers.getFirst(HttpHeaders.RETRY_AFTER) : null;
         if (StringUtils.hasText(retryAfter)) {
             try {
                 long seconds = Long.parseLong(retryAfter.trim());

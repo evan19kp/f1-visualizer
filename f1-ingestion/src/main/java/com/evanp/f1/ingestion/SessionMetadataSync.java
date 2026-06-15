@@ -32,11 +32,15 @@ public class SessionMetadataSync {
     public void syncIfNeeded(String configKey) {
         if (isNumericSessionKey(configKey)) {
             long sessionKey = sessionKeyResolver.resolveNumericKey(configKey);
-            if (sessionKey >= 0 && raceSessionRepository.findById(sessionKey).isPresent()) {
+            if (sessionKey >= 0 && hasUsableMetadata(raceSessionRepository.findById(sessionKey))) {
                 return;
             }
         }
         openF1Client.fetchSession(configKey).ifPresent(this::upsert);
+    }
+
+    private static boolean hasUsableMetadata(Optional<RaceSessionEntity> entity) {
+        return entity.filter(row -> row.getDateStart() != null).isPresent();
     }
 
     private void upsert(OpenF1SessionResponse session) {

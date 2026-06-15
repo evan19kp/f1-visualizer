@@ -21,7 +21,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SessionMetadataSyncTest {
 
     private static final long SESSION_KEY = 9161L;
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2024-03-02T15:00:00Z"), ZoneOffset.UTC);
+    private static final Instant DATE_START = Instant.parse("2024-03-02T15:00:00Z");
+    private static final Clock CLOCK = Clock.fixed(DATE_START, ZoneOffset.UTC);
 
     @Mock
     private OpenF1Client openF1Client;
@@ -40,13 +41,26 @@ class SessionMetadataSyncTest {
     }
 
     @Test
-    void syncIfNeeded_skipsOpenF1WhenDbRowExistsForNumericKey() {
+    void syncIfNeeded_skipsOpenF1WhenDbRowHasDateStart() {
+        RaceSessionEntity cached = RaceSessionEntity.newInstance();
+        cached.setSessionKey(SESSION_KEY);
+        cached.setDateStart(DATE_START);
+        when(sessionKeyResolver.resolveNumericKey("9161")).thenReturn(SESSION_KEY);
+        when(raceSessionRepository.findById(SESSION_KEY)).thenReturn(Optional.of(cached));
+
+        sessionMetadataSync.syncIfNeeded("9161");
+
+        verify(openF1Client, never()).fetchSession(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void syncIfNeeded_fetchesWhenDbRowMissingDateStart() {
         when(sessionKeyResolver.resolveNumericKey("9161")).thenReturn(SESSION_KEY);
         when(raceSessionRepository.findById(SESSION_KEY)).thenReturn(Optional.of(RaceSessionEntity.newInstance()));
 
         sessionMetadataSync.syncIfNeeded("9161");
 
-        verify(openF1Client, never()).fetchSession(org.mockito.ArgumentMatchers.any());
+        verify(openF1Client).fetchSession("9161");
     }
 
     @Test

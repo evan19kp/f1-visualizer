@@ -8,7 +8,6 @@ import com.evanp.f1.ingestion.normalize.CoordinateNormalizer;
 import com.evanp.f1.ingestion.normalize.NormalizationResult;
 import com.evanp.f1.ingestion.openf1.OpenF1Client;
 import com.evanp.f1.ingestion.openf1.OpenF1LocationResponse;
-import com.evanp.f1.ingestion.openf1.OpenF1SessionResponse;
 import com.evanp.f1.persistence.session.RaceSessionEntity;
 import com.evanp.f1.persistence.session.RaceSessionRepository;
 import java.time.Clock;
@@ -151,7 +150,7 @@ public class IngestionService {
             return raceSessionRepository
                     .findById(cursorKey)
                     .map(RaceSessionEntity::getDateStart)
-                    .or(() -> openF1Client.fetchSession(configKey).map(OpenF1SessionResponse::dateStart))
+                    .filter(dateStart -> dateStart != null)
                     .or(() -> Optional.of(Instant.EPOCH));
         }
         return Optional.of(Instant.EPOCH);
