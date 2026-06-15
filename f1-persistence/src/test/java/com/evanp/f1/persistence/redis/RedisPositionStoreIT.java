@@ -73,4 +73,23 @@ class RedisPositionStoreIT extends AbstractContainersIT {
 
         assertThat(store.getPollCursor(SESSION_KEY)).contains(cursor);
     }
+
+    @Test
+    void appendHistory_andGetFrameAt_roundTrip() {
+        Instant t1 = Instant.parse("2024-03-02T15:00:00Z");
+        Instant t2 = Instant.parse("2024-03-02T15:00:05Z");
+        NormalizedPosition first = new NormalizedPosition(1, SESSION_KEY, t1, 0.1, 0.2, 0.3);
+        NormalizedPosition second = new NormalizedPosition(44, SESSION_KEY, t2, 0.4, 0.5, 0.6);
+
+        store.appendHistory(SESSION_KEY, List.of(first));
+        store.appendHistory(SESSION_KEY, List.of(second));
+
+        assertThat(store.hasHistory(SESSION_KEY)).isTrue();
+        assertThat(store.getFrameAt(SESSION_KEY, t2)).containsExactly(second);
+        assertThat(store.getHistoryTimeRange(SESSION_KEY))
+                .contains(new com.evanp.f1.core.position.SessionTimeRange(t1, t2));
+        assertThat(store.getFrameAt(SESSION_KEY, t1.plusSeconds(2))).containsExactly(first);
+        assertThat(store.getFrameAt(SESSION_KEY, t1.minusSeconds(1))).containsExactly(first);
+        assertThat(store.getFrameAt(SESSION_KEY, t2.plusSeconds(1))).containsExactly(second);
+    }
 }

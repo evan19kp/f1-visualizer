@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.evanp.f1.ingestion.IngestionStatusService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -28,19 +29,28 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(OutputCaptureExtension.class)
 class OpenF1ClientTest {
 
     private MockRestServiceServer server;
     private OpenF1Client client;
+    private IngestionStatusService ingestionStatusService;
     private final Clock clock = Clock.fixed(Instant.parse("2026-06-12T12:00:00Z"), ZoneOffset.UTC);
 
     @BeforeEach
     void setUp() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new OpenF1Client(builder, "http://localhost", "", "", "", "http://localhost/token", 30_000, clock);
+        ingestionStatusService = mock(IngestionStatusService.class);
+        client = newClient(builder, "", "", "");
+    }
+
+    private OpenF1Client newClient(RestClient.Builder builder, String token, String user, String pass) {
+        return new OpenF1Client(
+                builder, "http://localhost", token, user, pass, "http://localhost/token", 30_000, clock,
+                ingestionStatusService);
     }
 
     @AfterEach
@@ -121,8 +131,7 @@ class OpenF1ClientTest {
     void fetchLocations_sendsConfiguredAccessToken() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new OpenF1Client(
-                builder, "http://localhost", "static-token", "", "", "http://localhost/token", 30_000, clock);
+        client = newClient(builder, "static-token", "", "");
 
         server.expect(requestTo("http://localhost/location?session_key=9161"))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer static-token"))
@@ -135,15 +144,7 @@ class OpenF1ClientTest {
     void fetchLocations_fetchesAndCachesOAuthToken() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new OpenF1Client(
-                builder,
-                "http://localhost",
-                "",
-                "driver@example.com",
-                "secret",
-                "http://localhost/token",
-                30_000,
-                clock);
+        client = newClient(builder, "", "driver@example.com", "secret");
 
         server.expect(requestTo("http://localhost/token"))
                 .andExpect(method(HttpMethod.POST))
@@ -164,15 +165,7 @@ class OpenF1ClientTest {
     void fetchLocations_skipsTokenRequestDuringFailureCooldown() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new OpenF1Client(
-                builder,
-                "http://localhost",
-                "",
-                "driver@example.com",
-                "secret",
-                "http://localhost/token",
-                30_000,
-                clock);
+        client = newClient(builder, "", "driver@example.com", "secret");
 
         server.expect(requestTo("http://localhost/token"))
                 .andExpect(method(HttpMethod.POST))

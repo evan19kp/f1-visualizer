@@ -31,6 +31,8 @@ public class IngestionService {
     private final IngestionProperties properties;
     private final Clock clock;
     private final SessionMetadataSync sessionMetadataSync;
+    private final IngestionStatusService ingestionStatusService;
+    private final SessionKeyResolver sessionKeyResolver;
 
     public IngestionService(
             OpenF1Client openF1Client,
@@ -38,16 +40,23 @@ public class IngestionService {
             PositionStore positionStore,
             IngestionProperties properties,
             Clock clock,
-            SessionMetadataSync sessionMetadataSync) {
+            SessionMetadataSync sessionMetadataSync,
+            IngestionStatusService ingestionStatusService,
+            SessionKeyResolver sessionKeyResolver) {
         this.openF1Client = openF1Client;
         this.coordinateNormalizer = coordinateNormalizer;
         this.positionStore = positionStore;
         this.properties = properties;
         this.clock = clock;
         this.sessionMetadataSync = sessionMetadataSync;
+        this.ingestionStatusService = ingestionStatusService;
+        this.sessionKeyResolver = sessionKeyResolver;
     }
 
     public void pollOnce() {
+        if (!properties.enabled()) {
+            return;
+        }
         try {
             String configKey = properties.sessionKey();
             try {
@@ -80,12 +89,15 @@ public class IngestionService {
 
             positionStore.savePositions(storeSessionKey, positionsToSave);
             positionStore.saveBounds(storeSessionKey, result.updatedBounds());
+            positionStore.appendHistory(storeSessionKey, positionsToSave);
 
             Instant maxTimestamp =
                     samples.stream().map(OpenF1LocationResponse::date).max(Instant::compareTo).orElseThrow();
             positionStore.savePollCursor(storeSessionKey, maxTimestamp);
+            ingestionStatusService.recordPollSuccess(storeSessionKey);
         } catch (Exception e) {
             log.error("Ingestion poll failed: {}", e.getMessage(), e);
+            ingestionStatusService.recordOpenF1Error("openf1_error");
         }
     }
 
@@ -140,10 +152,7 @@ public class IngestionService {
     }
 
     private long resolveCursorSessionKey(String configKey) {
-        if (isNumericSessionKey(configKey)) {
-            return Long.parseLong(configKey);
-        }
-        return openF1Client.fetchSession(configKey).map(OpenF1SessionResponse::sessionKey).orElse(-1L);
+        return sessionKeyResolver.resolveNumericKey(configKey);
     }
 
     private static boolean isNumericSessionKey(String sessionKey) {

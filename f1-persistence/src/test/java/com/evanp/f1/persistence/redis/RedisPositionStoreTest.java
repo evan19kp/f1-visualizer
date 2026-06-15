@@ -193,13 +193,15 @@ class RedisPositionStoreTest {
         String positionsKey = "f1:session:" + SESSION_KEY + ":positions";
         String boundsKey = "f1:session:" + SESSION_KEY + ":bounds";
         String pollCursorKey = "f1:session:" + SESSION_KEY + ":poll_cursor";
+        String historyKey = "f1:session:" + SESSION_KEY + ":history";
         when(redisTemplate.hasKey(positionsKey)).thenReturn(true);
         when(redisTemplate.hasKey(boundsKey)).thenReturn(true);
         when(redisTemplate.hasKey(pollCursorKey)).thenReturn(false);
+        when(redisTemplate.hasKey(historyKey)).thenReturn(true);
 
         List<String> cleared = store.clearSession(SESSION_KEY);
 
-        verify(redisTemplate).delete(List.of(positionsKey, boundsKey));
-        assertThat(cleared).containsExactly(positionsKey, boundsKey);
+        verify(redisTemplate).delete(List.of(positionsKey, boundsKey, historyKey));
+        assertThat(cleared).containsExactly(positionsKey, boundsKey, historyKey);
     }
 }

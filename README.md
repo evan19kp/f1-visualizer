@@ -18,6 +18,22 @@ Real-time Formula 1 race visualization with 3D rendering, WebSocket position str
 
 All backend commands run from the **repo root** (`f1-visualizer/`), not `f1-frontend/`.
 
+### One-command bootstrap
+
+```bash
+./scripts/dev-up.sh
+```
+
+Starts Docker, optionally publishes a cached track mesh, then prints env blocks for the API and frontend terminals. After both are running, use **Dev → Backfill history** and **Play** on the timeline for session `9161`.
+
+Verify with:
+
+```bash
+./scripts/dev-check.sh
+```
+
+### Manual setup
+
 ### 1. Infrastructure
 
 ```bash
@@ -75,7 +91,7 @@ Copy `.env.example` to `.env` at the repo root for a ready-made local profile (n
 | `DB_USER` / `DB_PASSWORD` | `f1user` / `f1pass` | Match `docker-compose.yml` Postgres service |
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | |
 | `INGESTION_ENABLED` | `false` | Set `true` to poll OpenF1 |
-| `OPENF1_SESSION_KEY` | `latest` | OpenF1 session key (e.g. `9161`) |
+| `OPENF1_SESSION_KEY` | `9161` | OpenF1 session key (e.g. `9161`) |
 | `OPENF1_ACCESS_TOKEN` | — | Optional bearer token for authenticated OpenF1 REST access |
 | `OPENF1_USERNAME` / `OPENF1_PASSWORD` | — | Optional OpenF1 credentials; backend exchanges them for a bearer token |
 | `OPENF1_TOKEN_FAILURE_COOLDOWN_MS` | `30000` | Delay before retrying failed OpenF1 token requests |

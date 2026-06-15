@@ -5,7 +5,11 @@ import { CameraRig } from './CameraRig'
 import { EmptyTrackOverlay } from './EmptyTrackOverlay'
 import { TrackMesh } from './TrackMesh'
 
-export function RaceCanvas(): React.JSX.Element {
+interface RaceCanvasProps {
+  historyLoaded?: boolean
+}
+
+export function RaceCanvas({ historyLoaded = false }: RaceCanvasProps): React.JSX.Element {
   return (
     <div className="relative h-full w-full overflow-hidden rounded-lg border border-zinc-800">
       <Canvas
@@ -20,7 +24,7 @@ export function RaceCanvas(): React.JSX.Element {
         <Cars />
         <CameraRig />
       </Canvas>
-      <EmptyTrackOverlay />
+      <EmptyTrackOverlay historyLoaded={historyLoaded} />
     </div>
   )
 }

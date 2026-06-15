@@ -1,5 +1,6 @@
 package com.evanp.f1.ingestion.openf1;
 
+import com.evanp.f1.ingestion.IngestionStatusService;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Clock;
 import java.time.Instant;
@@ -8,6 +9,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,6 +34,7 @@ public class OpenF1Client {
     private final String tokenUrl;
     private final long tokenFailureCooldownMs;
     private final Clock clock;
+    private final IngestionStatusService ingestionStatusService;
     private volatile CachedToken cachedToken = CachedToken.empty();
 
     public OpenF1Client(
@@ -42,7 +45,8 @@ public class OpenF1Client {
             @Value("${app.openf1.password:}") String password,
             @Value("${app.openf1.token-url:https://api.openf1.org/token}") String tokenUrl,
             @Value("${app.openf1.token-failure-cooldown-ms:30000}") long tokenFailureCooldownMs,
-            Clock clock) {
+            Clock clock,
+            @Lazy IngestionStatusService ingestionStatusService) {
         this.restClient = builder.baseUrl(baseUrl).build();
         this.configuredAccessToken = configuredAccessToken;
         this.username = username;
@@ -50,6 +54,7 @@ public class OpenF1Client {
         this.tokenUrl = tokenUrl;
         this.tokenFailureCooldownMs = tokenFailureCooldownMs;
         this.clock = clock;
+        this.ingestionStatusService = ingestionStatusService;
     }
 
     public List<OpenF1LocationResponse> fetchLocations(
@@ -77,6 +82,7 @@ public class OpenF1Client {
                 return List.of();
             }
             log.error("OpenF1 /location request failed for session {}: {}", sessionKey, e.getMessage());
+            recordOpenF1Error(e);
             return List.of();
         }
     }
@@ -211,6 +217,20 @@ public class OpenF1Client {
     private static boolean isNotFound(RestClientException exception) {
         return exception instanceof RestClientResponseException responseException
                 && responseException.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND);
+    }
+
+    private void recordOpenF1Error(RestClientException exception) {
+        if (exception instanceof RestClientResponseException responseException) {
+            if (responseException.getStatusCode().isSameCodeAs(HttpStatus.UNAUTHORIZED)) {
+                ingestionStatusService.recordOpenF1Error("openf1_unauthorized");
+                return;
+            }
+            if (responseException.getStatusCode().isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)) {
+                ingestionStatusService.recordOpenF1Error("openf1_rate_limited");
+                return;
+            }
+        }
+        ingestionStatusService.recordOpenF1Error("openf1_error");
     }
 
     private record CachedToken(String value, Instant expiresAt) {

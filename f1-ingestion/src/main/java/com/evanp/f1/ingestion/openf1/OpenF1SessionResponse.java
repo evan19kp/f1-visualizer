@@ -8,4 +8,5 @@ public record OpenF1SessionResponse(
         @JsonProperty("meeting_key") long meetingKey,
         @JsonProperty("session_name") String sessionName,
         @JsonProperty("circuit_short_name") String circuitShortName,
-        @JsonProperty("date_start") Instant dateStart) {}
+        @JsonProperty("date_start") Instant dateStart,
+        @JsonProperty("date_end") Instant dateEnd) {}

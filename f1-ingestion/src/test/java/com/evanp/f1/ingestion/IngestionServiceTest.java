@@ -50,19 +50,28 @@ class IngestionServiceTest {
     @Mock
     private RaceSessionRepository raceSessionRepository;
 
+    @Mock
+    private IngestionStatusService ingestionStatusService;
+
+    @Mock
+    private SessionKeyResolver sessionKeyResolver;
+
     private IngestionService ingestionService;
     private SessionMetadataSync sessionMetadataSync;
 
     @BeforeEach
     void setUp() {
         sessionMetadataSync = new SessionMetadataSync(openF1Client, raceSessionRepository, FIXED_CLOCK);
+        when(sessionKeyResolver.resolveNumericKey(String.valueOf(SESSION_KEY))).thenReturn(SESSION_KEY);
         ingestionService = new IngestionService(
                 openF1Client,
                 coordinateNormalizer,
                 positionStore,
                 new IngestionProperties(true, String.valueOf(SESSION_KEY)),
                 FIXED_CLOCK,
-                sessionMetadataSync);
+                sessionMetadataSync,
+                ingestionStatusService,
+                sessionKeyResolver);
     }
 
     @Test
@@ -73,7 +82,7 @@ class IngestionServiceTest {
 
         when(openF1Client.fetchSession(String.valueOf(SESSION_KEY)))
                 .thenReturn(Optional.of(new OpenF1SessionResponse(
-                        SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP)));
+                        SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP, TIMESTAMP.plusSeconds(3600))));
         when(raceSessionRepository.findById(SESSION_KEY)).thenReturn(Optional.empty());
         when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.empty());
         when(openF1Client.fetchLocations(
@@ -96,6 +105,7 @@ class IngestionServiceTest {
         assertEquals(NOW, savedSession.getCreatedAt());
 
         verify(positionStore).savePositions(SESSION_KEY, List.of(normalized));
+        verify(positionStore).appendHistory(SESSION_KEY, List.of(normalized));
         verify(positionStore).saveBounds(SESSION_KEY, updatedBounds);
         verify(positionStore).savePollCursor(SESSION_KEY, TIMESTAMP);
 
@@ -107,13 +117,16 @@ class IngestionServiceTest {
     void pollOnce_whenBoundsExpand_renormalizesExistingPositions() {
         CoordinateNormalizer realNormalizer = new CoordinateNormalizer();
         when(raceSessionRepository.findById(SESSION_KEY)).thenReturn(Optional.empty());
+        when(sessionKeyResolver.resolveNumericKey(String.valueOf(SESSION_KEY))).thenReturn(SESSION_KEY);
         IngestionService service = new IngestionService(
                 openF1Client,
                 realNormalizer,
                 positionStore,
                 new IngestionProperties(true, String.valueOf(SESSION_KEY)),
                 FIXED_CLOCK,
-                sessionMetadataSync);
+                sessionMetadataSync,
+                ingestionStatusService,
+                sessionKeyResolver);
 
         Instant later = TIMESTAMP.plusSeconds(1);
         SessionBounds oldBounds = SessionBounds.empty().expand(0.0, 0.0, 0.0).expand(10.0, 0.0, 0.0);
@@ -123,7 +136,7 @@ class IngestionServiceTest {
 
         when(openF1Client.fetchSession(String.valueOf(SESSION_KEY)))
                 .thenReturn(Optional.of(new OpenF1SessionResponse(
-                        SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP)));
+                        SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP, TIMESTAMP.plusSeconds(3600))));
         when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.of(TIMESTAMP));
         when(openF1Client.fetchLocations(
                         eq(String.valueOf(SESSION_KEY)), eq(Optional.of(TIMESTAMP)), any(Optional.class)))
@@ -149,7 +162,7 @@ class IngestionServiceTest {
     void pollOnce_whenNoLocations_doesNotSave() {
         when(openF1Client.fetchSession(String.valueOf(SESSION_KEY)))
                 .thenReturn(Optional.of(new OpenF1SessionResponse(
-                        SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP)));
+                        SESSION_KEY, 1219L, "Race", "Bahrain", TIMESTAMP, TIMESTAMP.plusSeconds(3600))));
         when(raceSessionRepository.findById(SESSION_KEY)).thenReturn(Optional.empty());
         when(positionStore.getPollCursor(SESSION_KEY)).thenReturn(Optional.empty());
         when(openF1Client.fetchLocations(
