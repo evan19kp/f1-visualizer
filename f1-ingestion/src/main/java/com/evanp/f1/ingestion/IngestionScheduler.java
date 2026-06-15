@@ -1,5 +1,6 @@
 package com.evanp.f1.ingestion;
 
+import com.evanp.f1.ingestion.openf1.OpenF1Client;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -10,15 +11,30 @@ public class IngestionScheduler {
 
     private final IngestionService ingestionService;
     private final StintIngestionService stintIngestionService;
+    private final OpenF1Client openF1Client;
 
-    public IngestionScheduler(IngestionService ingestionService, StintIngestionService stintIngestionService) {
+    public IngestionScheduler(
+            IngestionService ingestionService,
+            StintIngestionService stintIngestionService,
+            OpenF1Client openF1Client) {
         this.ingestionService = ingestionService;
         this.stintIngestionService = stintIngestionService;
+        this.openF1Client = openF1Client;
     }
 
     @Scheduled(fixedDelayString = "${app.openf1.poll-interval-ms}")
     public void tick() {
+        if (openF1Client.isRateLimited()) {
+            return;
+        }
         ingestionService.pollOnce();
+    }
+
+    @Scheduled(fixedDelayString = "${app.openf1.stint-poll-interval-ms:30000}")
+    public void pollStints() {
+        if (openF1Client.isRateLimited()) {
+            return;
+        }
         stintIngestionService.pollOnce();
     }
 }

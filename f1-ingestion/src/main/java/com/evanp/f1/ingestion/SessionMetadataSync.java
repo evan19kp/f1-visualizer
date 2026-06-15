@@ -15,17 +15,32 @@ public class SessionMetadataSync {
 
     private final OpenF1Client openF1Client;
     private final RaceSessionRepository raceSessionRepository;
+    private final SessionKeyResolver sessionKeyResolver;
     private final Clock clock;
 
     public SessionMetadataSync(
-            OpenF1Client openF1Client, RaceSessionRepository raceSessionRepository, Clock clock) {
+            OpenF1Client openF1Client,
+            RaceSessionRepository raceSessionRepository,
+            SessionKeyResolver sessionKeyResolver,
+            Clock clock) {
         this.openF1Client = openF1Client;
         this.raceSessionRepository = raceSessionRepository;
+        this.sessionKeyResolver = sessionKeyResolver;
         this.clock = clock;
     }
 
     public void syncIfNeeded(String configKey) {
+        if (isNumericSessionKey(configKey)) {
+            long sessionKey = sessionKeyResolver.resolveNumericKey(configKey);
+            if (sessionKey >= 0 && hasUsableMetadata(raceSessionRepository.findById(sessionKey))) {
+                return;
+            }
+        }
         openF1Client.fetchSession(configKey).ifPresent(this::upsert);
+    }
+
+    private static boolean hasUsableMetadata(Optional<RaceSessionEntity> entity) {
+        return entity.filter(row -> row.getDateStart() != null).isPresent();
     }
 
     private void upsert(OpenF1SessionResponse session) {
@@ -55,5 +70,17 @@ public class SessionMetadataSync {
         entity.setCircuitName(session.circuitShortName());
         entity.setDateStart(session.dateStart());
         raceSessionRepository.save(entity);
+    }
+
+    private static boolean isNumericSessionKey(String sessionKey) {
+        if (sessionKey == null || sessionKey.isBlank()) {
+            return false;
+        }
+        for (int i = 0; i < sessionKey.length(); i++) {
+            if (!Character.isDigit(sessionKey.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 }

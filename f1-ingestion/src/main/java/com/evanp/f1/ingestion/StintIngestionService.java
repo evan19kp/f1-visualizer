@@ -4,7 +4,6 @@ import com.evanp.f1.core.stint.StintSnapshot;
 import com.evanp.f1.core.stint.StintStore;
 import com.evanp.f1.ingestion.config.IngestionProperties;
 import com.evanp.f1.ingestion.openf1.OpenF1Client;
-import com.evanp.f1.ingestion.openf1.OpenF1SessionResponse;
 import com.evanp.f1.ingestion.openf1.OpenF1StintResponse;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -23,18 +22,23 @@ public class StintIngestionService {
     private final OpenF1Client openF1Client;
     private final StintStore stintStore;
     private final IngestionProperties properties;
+    private final SessionKeyResolver sessionKeyResolver;
 
     public StintIngestionService(
-            OpenF1Client openF1Client, StintStore stintStore, IngestionProperties properties) {
+            OpenF1Client openF1Client,
+            StintStore stintStore,
+            IngestionProperties properties,
+            SessionKeyResolver sessionKeyResolver) {
         this.openF1Client = openF1Client;
         this.stintStore = stintStore;
         this.properties = properties;
+        this.sessionKeyResolver = sessionKeyResolver;
     }
 
     public void pollOnce() {
         try {
             String configKey = properties.sessionKey();
-            long sessionKey = resolveSessionKey(configKey);
+            long sessionKey = sessionKeyResolver.resolveNumericKey(configKey);
             if (sessionKey < 0) {
                 return;
             }
@@ -75,24 +79,5 @@ public class StintIngestionService {
                 response.lapStart(),
                 response.lapEnd(),
                 response.tyreAgeAtStart());
-    }
-
-    private long resolveSessionKey(String configKey) {
-        if (isNumericSessionKey(configKey)) {
-            return Long.parseLong(configKey);
-        }
-        return openF1Client.fetchSession(configKey).map(OpenF1SessionResponse::sessionKey).orElse(-1L);
-    }
-
-    private static boolean isNumericSessionKey(String sessionKey) {
-        if (sessionKey == null || sessionKey.isBlank()) {
-            return false;
-        }
-        for (int i = 0; i < sessionKey.length(); i++) {
-            if (!Character.isDigit(sessionKey.charAt(i))) {
-                return false;
-            }
-        }
-        return true;
     }
 }
