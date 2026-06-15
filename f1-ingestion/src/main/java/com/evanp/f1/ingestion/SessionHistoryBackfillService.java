@@ -71,6 +71,9 @@ public class SessionHistoryBackfillService {
         while (cursor.isBefore(end)) {
             if (paceRequests) {
                 awaitOpenF1Availability();
+                if (Thread.currentThread().isInterrupted()) {
+                    break;
+                }
             }
             Instant windowEnd = cursor.plus(IngestionConstants.POLL_WINDOW);
             if (windowEnd.isAfter(end)) {
@@ -103,17 +106,23 @@ public class SessionHistoryBackfillService {
     }
 
     private void awaitOpenF1Availability() {
-        while (openF1Client.isRateLimited()) {
-            sleepBriefly(1000L);
+        while (!Thread.currentThread().isInterrupted() && openF1Client.isRateLimited()) {
+            if (sleepBriefly(1000L)) {
+                return;
+            }
         }
-        sleepBriefly(2500L);
+        if (!Thread.currentThread().isInterrupted()) {
+            sleepBriefly(2500L);
+        }
     }
 
-    private static void sleepBriefly(long millis) {
+    private static boolean sleepBriefly(long millis) {
         try {
             Thread.sleep(millis);
+            return false;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+            return true;
         }
     }
 

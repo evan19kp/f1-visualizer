@@ -41,7 +41,8 @@ public class IngestionStatusService {
                     properties.sessionKey(),
                     sessionKeyResolver.resolveNumericKey(properties.sessionKey()),
                     lastPollAt.get(),
-                    "ingestion_disabled");
+                    "ingestion_disabled",
+                    properties.autoBootstrap());
         }
         Long cached = lastResolvedSessionKey.get();
         long resolved = cached != null
@@ -52,7 +53,8 @@ public class IngestionStatusService {
                 properties.sessionKey(),
                 resolved,
                 lastPollAt.get(),
-                lastError.get() != null ? lastError.get() : "none");
+                lastError.get() != null ? lastError.get() : "none",
+                properties.autoBootstrap());
     }
 
     public record Snapshot(
@@ -60,5 +62,6 @@ public class IngestionStatusService {
             String configuredSessionKey,
             long resolvedSessionKey,
             Instant lastPollAt,
-            String lastError) {}
+            String lastError,
+            boolean autoBootstrap) {}
 }

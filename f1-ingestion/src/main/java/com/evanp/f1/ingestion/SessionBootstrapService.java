@@ -89,6 +89,9 @@ public class SessionBootstrapService {
             return;
         }
         List<NormalizedPosition> frame = positionStore.getFrameAt(sessionKey, range.get().start());
+        if (frame.isEmpty()) {
+            frame = positionStore.getFrameAt(sessionKey, range.get().end());
+        }
         if (!frame.isEmpty()) {
             positionStore.savePositions(sessionKey, frame);
         }

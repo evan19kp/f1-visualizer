@@ -8,8 +8,9 @@ echo "Starting Docker services..."
 docker compose up -d
 
 SESSION_KEY="${OPENF1_SESSION_KEY:-9161}"
+CIRCUIT_SLUG="${CIRCUIT_SLUG:-singapore}"
 CACHE_JSON="$ROOT/tools/track-mesh/cache/${SESSION_KEY}.json"
-PUBLISH_ARGS=(--session-key "$SESSION_KEY" --circuit-slug singapore)
+PUBLISH_ARGS=(--session-key "$SESSION_KEY" --circuit-slug "$CIRCUIT_SLUG")
 if [[ -f "$CACHE_JSON" ]]; then
   echo "Publishing cached track mesh for session ${SESSION_KEY}..."
   PUBLISH_ARGS+=(--use-cache)

@@ -2,6 +2,7 @@ package com.evanp.f1.ingestion;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -70,10 +71,9 @@ class SessionBootstrapServiceTest {
                 .thenReturn(new SessionHistoryBackfillService.BackfillResult(SESSION_KEY, 10, true, "none"));
 
         sessionBootstrapService.bootstrapOnStartup();
-        Thread.sleep(200L);
 
-        verify(sessionMetadataSync).syncIfNeeded(String.valueOf(SESSION_KEY));
-        verify(backfillService).backfill(String.valueOf(SESSION_KEY), true);
+        verify(sessionMetadataSync, timeout(5000)).syncIfNeeded(String.valueOf(SESSION_KEY));
+        verify(backfillService, timeout(5000)).backfill(String.valueOf(SESSION_KEY), true);
     }
 
     @Test
@@ -89,6 +89,23 @@ class SessionBootstrapServiceTest {
         sessionBootstrapService.bootstrapOnStartup();
 
         verify(backfillService, never()).backfill(org.mockito.ArgumentMatchers.any(), eq(true));
+        verify(positionStore).savePositions(SESSION_KEY, List.of(position));
+    }
+
+    @Test
+    void bootstrapOnStartup_usesEndFrameWhenStartFrameEmpty() {
+        Instant end = START.plusSeconds(3600);
+        when(sessionKeyResolver.resolveNumericKey(String.valueOf(SESSION_KEY))).thenReturn(SESSION_KEY);
+        when(positionStore.hasHistory(SESSION_KEY)).thenReturn(true);
+        when(positionStore.getAllPositions(SESSION_KEY)).thenReturn(List.of());
+        when(positionStore.getHistoryTimeRange(SESSION_KEY))
+                .thenReturn(Optional.of(new SessionTimeRange(START, end)));
+        NormalizedPosition position = new NormalizedPosition(44, SESSION_KEY, end, 0.1, 0.0, 0.2);
+        when(positionStore.getFrameAt(SESSION_KEY, START)).thenReturn(List.of());
+        when(positionStore.getFrameAt(SESSION_KEY, end)).thenReturn(List.of(position));
+
+        sessionBootstrapService.bootstrapOnStartup();
+
         verify(positionStore).savePositions(SESSION_KEY, List.of(position));
     }
 }

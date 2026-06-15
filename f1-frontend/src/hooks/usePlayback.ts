@@ -9,6 +9,7 @@ export interface IngestionStatus {
   resolvedSessionKey: number
   lastPollAt: string | null
   lastError: string
+  autoBootstrap: boolean
 }
 
 export function useIngestionStatus(): IngestionStatus | null {
