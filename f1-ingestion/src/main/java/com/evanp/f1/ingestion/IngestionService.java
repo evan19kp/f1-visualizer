@@ -62,6 +62,12 @@ public class IngestionService {
             return;
         }
         try {
+            if (ingestionStatusService.isBootstrapRunning()) {
+                return;
+            }
+            if (!properties.livePollAfterBootstrap() && shouldSkipHistoricalLivePoll()) {
+                return;
+            }
             String configKey = properties.sessionKey();
             try {
                 sessionMetadataSync.syncIfNeeded(configKey);
@@ -158,6 +164,14 @@ public class IngestionService {
 
     private long resolveCursorSessionKey(String configKey) {
         return sessionKeyResolver.resolveNumericKey(configKey);
+    }
+
+    private boolean shouldSkipHistoricalLivePoll() {
+        long sessionKey = sessionKeyResolver.resolveNumericKey(properties.sessionKey());
+        if (sessionKey < 0 || !positionStore.hasHistory(sessionKey)) {
+            return false;
+        }
+        return ingestionStatusService.isBootstrapComplete() || ingestionStatusService.snapshot().historyReady();
     }
 
     private static boolean isNumericSessionKey(String sessionKey) {

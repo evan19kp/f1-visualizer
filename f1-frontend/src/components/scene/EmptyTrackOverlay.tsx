@@ -40,12 +40,30 @@ function ingestionMessage(
       ],
     }
   }
+  if (status.bootstrapStatus === 'running') {
+    return {
+      title: 'Loading session history…',
+      hints: [
+        'The API is backfilling replay data from OpenF1 (about 30–90s for session 9161)',
+        'The timeline and cars appear when loading completes — then press Play',
+      ],
+    }
+  }
+  if (!status.historyReady && status.autoBootstrap) {
+    return {
+      title: 'Waiting for replay history…',
+      hints: [
+        'Session history loads automatically when the API starts',
+        'Press Play on the timeline once it appears',
+      ],
+    }
+  }
   return {
     title: 'Waiting for position data…',
     hints: status.autoBootstrap
       ? [
           'Session history loads automatically when the API starts (about 30s for session 9161)',
-          'The timeline and cars appear once bootstrap finishes — no Dev Tools required',
+          'Press Play on the timeline once it appears',
         ]
       : [
           'Ingestion polls OpenF1 every few seconds — data should appear within ~10s',

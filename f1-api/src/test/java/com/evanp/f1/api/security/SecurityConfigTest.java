@@ -71,4 +71,12 @@ class SecurityConfigTest {
     void publicPositionsRoute_isPermittedWithoutAuth() throws Exception {
         mockMvc.perform(get("/api/sessions/9161/positions")).andExpect(status().isNotFound());
     }
+
+    @Test
+    void playbackPlay_requiresAuthWhenDevModeDisabled() throws Exception {
+        mockMvc.perform(post("/api/sessions/9161/playback/play")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"speed\":1}"))
+                .andExpect(status().isUnauthorized());
+    }
 }

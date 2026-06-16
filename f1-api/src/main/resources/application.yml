@@ -80,6 +80,8 @@ app:
     session-key: ${OPENF1_SESSION_KEY:9161}
     # On startup, backfill OpenF1 history when Redis has none (demo session works without Dev Tools).
     auto-bootstrap: ${INGESTION_AUTO_BOOTSTRAP:true}
+    # Keep polling live OpenF1 after bootstrap; false for historical demo sessions (replay-only).
+    live-poll-after-bootstrap: ${INGESTION_LIVE_POLL_AFTER_BOOTSTRAP:false}
   s3:
     bucket: ${S3_BUCKET:f1-visualizer-assets}
     region: ${AWS_REGION:us-east-1}

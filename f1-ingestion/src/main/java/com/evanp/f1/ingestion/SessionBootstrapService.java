@@ -24,18 +24,21 @@ public class SessionBootstrapService {
     private final PositionStore positionStore;
     private final SessionMetadataSync sessionMetadataSync;
     private final SessionHistoryBackfillService backfillService;
+    private final IngestionStatusService ingestionStatusService;
 
     public SessionBootstrapService(
             IngestionProperties properties,
             SessionKeyResolver sessionKeyResolver,
             PositionStore positionStore,
             SessionMetadataSync sessionMetadataSync,
-            SessionHistoryBackfillService backfillService) {
+            SessionHistoryBackfillService backfillService,
+            IngestionStatusService ingestionStatusService) {
         this.properties = properties;
         this.sessionKeyResolver = sessionKeyResolver;
         this.positionStore = positionStore;
         this.sessionMetadataSync = sessionMetadataSync;
         this.backfillService = backfillService;
+        this.ingestionStatusService = ingestionStatusService;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -53,6 +56,7 @@ public class SessionBootstrapService {
 
         if (positionStore.hasHistory(sessionKey)) {
             log.info("Session {} already has replay history; ensuring display positions", sessionKey);
+            ingestionStatusService.markBootstrapComplete();
             ensureDisplayPositions(sessionKey);
             return;
         }
@@ -64,18 +68,22 @@ public class SessionBootstrapService {
 
     private void runBootstrap(String configKey, long sessionKey) {
         log.info("Bootstrapping session {} from OpenF1 (no replay history in Redis)", sessionKey);
+        ingestionStatusService.markBootstrapRunning();
         try {
             sessionMetadataSync.syncIfNeeded(configKey);
             SessionHistoryBackfillService.BackfillResult result = backfillService.backfill(configKey, true);
             if (result.success()) {
+                ingestionStatusService.markBootstrapComplete();
                 log.info(
                         "Session {} bootstrap complete ({} samples); cars and timeline ready",
                         sessionKey,
                         result.samplesAppended());
             } else {
+                ingestionStatusService.markBootstrapFailed();
                 log.warn("Session {} bootstrap failed: {}", sessionKey, result.error());
             }
         } catch (Exception e) {
+            ingestionStatusService.markBootstrapFailed();
             log.error("Session {} bootstrap failed: {}", sessionKey, e.getMessage(), e);
         }
     }

@@ -62,13 +62,14 @@ class IngestionServiceTest {
 
     @BeforeEach
     void setUp() {
+        when(ingestionStatusService.isBootstrapRunning()).thenReturn(false);
         sessionMetadataSync =
                 new SessionMetadataSync(openF1Client, raceSessionRepository, sessionKeyResolver, FIXED_CLOCK);
         ingestionService = new IngestionService(
                 openF1Client,
                 coordinateNormalizer,
                 positionStore,
-                new IngestionProperties(true, String.valueOf(SESSION_KEY), false),
+                new IngestionProperties(true, String.valueOf(SESSION_KEY), false, false),
                 FIXED_CLOCK,
                 sessionMetadataSync,
                 ingestionStatusService,
@@ -137,7 +138,7 @@ class IngestionServiceTest {
                 openF1Client,
                 realNormalizer,
                 positionStore,
-                new IngestionProperties(true, String.valueOf(SESSION_KEY), false),
+                new IngestionProperties(true, String.valueOf(SESSION_KEY), false, false),
                 FIXED_CLOCK,
                 sessionMetadataSync,
                 ingestionStatusService,
@@ -230,7 +231,7 @@ class IngestionServiceTest {
                 openF1Client,
                 coordinateNormalizer,
                 positionStore,
-                new IngestionProperties(true, "latest", false),
+                new IngestionProperties(true, "latest", false, false),
                 FIXED_CLOCK,
                 sessionMetadataSync,
                 ingestionStatusService,

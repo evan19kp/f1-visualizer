@@ -2,6 +2,7 @@ package com.evanp.f1.api.rest;
 
 import com.evanp.f1.ingestion.IngestionStatusService;
 import java.time.Instant;
+import java.util.Locale;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,7 +27,9 @@ public class IngestionStatusController {
                 snapshot.resolvedSessionKey(),
                 snapshot.lastPollAt(),
                 snapshot.lastError(),
-                snapshot.autoBootstrap()));
+                snapshot.autoBootstrap(),
+                snapshot.bootstrapStatus().name().toLowerCase(Locale.ROOT),
+                snapshot.historyReady()));
     }
 
     public record IngestionStatusResponse(
@@ -35,5 +38,7 @@ public class IngestionStatusController {
             long resolvedSessionKey,
             Instant lastPollAt,
             String lastError,
-            boolean autoBootstrap) {}
+            boolean autoBootstrap,
+            String bootstrapStatus,
+            boolean historyReady) {}
 }

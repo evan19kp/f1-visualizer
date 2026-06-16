@@ -11,7 +11,7 @@ import { TireWidget } from './components/hud/TireWidget'
 import { RaceCanvas } from './components/scene/RaceCanvas'
 import { resolveInitialSessionKey } from './config/session'
 import { useInitialPositions } from './hooks/useInitialPositions'
-import { usePlayback } from './hooks/usePlayback'
+import { useIngestionStatus, usePlayback } from './hooks/usePlayback'
 import { useStompPositions } from './hooks/useStompPositions'
 import { useRaceStore } from './store/raceStore'
 
@@ -39,7 +39,9 @@ export default function App(): React.JSX.Element {
 
   useStompPositions(sessionKey)
   useInitialPositions(sessionKey)
-  const { playback, play, pause, seek } = usePlayback(sessionKey)
+  const ingestionStatus = useIngestionStatus()
+  const { playback, playbackError, play, pause, seek } = usePlayback(sessionKey)
+  const historyReady = ingestionStatus?.historyReady ?? playback?.historyLoaded ?? false
 
   return (
     <div className="flex h-screen flex-col">
@@ -54,11 +56,18 @@ export default function App(): React.JSX.Element {
           Drivers <span className="font-mono text-zinc-200">{positions.size}</span>
         </span>
       </header>
-      <PlaybackBar playback={playback} play={play} pause={pause} seek={seek} />
+      <PlaybackBar
+        playback={playback}
+        ingestionStatus={ingestionStatus}
+        playbackError={playbackError}
+        play={play}
+        pause={pause}
+        seek={seek}
+      />
       <ConnectionBanner />
       <main className="flex min-h-0 flex-1 p-2 sm:p-4">
         <HudLayout
-          canvas={<RaceCanvas historyLoaded={playback?.historyLoaded ?? false} />}
+          canvas={<RaceCanvas historyLoaded={historyReady} />}
           left={<GapTower />}
           topRight={<CameraSelector />}
           bottomLeft={<TireWidget />}

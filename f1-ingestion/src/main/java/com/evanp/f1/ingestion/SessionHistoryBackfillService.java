@@ -11,10 +11,7 @@ import com.evanp.f1.ingestion.openf1.OpenF1LocationResponse;
 import com.evanp.f1.ingestion.openf1.OpenF1SessionResponse;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,10 +85,9 @@ public class SessionHistoryBackfillService {
 
             NormalizationResult result = coordinateNormalizer.normalize(samples, bounds);
             bounds = result.updatedBounds();
-            List<NormalizedPosition> positions = dedupeLatestPerDriver(result.positions());
-            positionStore.appendHistory(sessionKey, positions);
+            positionStore.appendHistory(sessionKey, result.positions());
             positionStore.saveBounds(sessionKey, bounds);
-            framesAppended += positions.size();
+            framesAppended += result.positions().size();
 
             Instant maxTimestamp =
                     samples.stream().map(OpenF1LocationResponse::date).max(Instant::compareTo).orElse(cursor);
@@ -136,15 +132,6 @@ public class SessionHistoryBackfillService {
         if (!frame.isEmpty()) {
             positionStore.savePositions(sessionKey, frame);
         }
-    }
-
-    private static List<NormalizedPosition> dedupeLatestPerDriver(List<NormalizedPosition> positions) {
-        Map<Integer, NormalizedPosition> latest = new LinkedHashMap<>();
-        for (NormalizedPosition position : positions) {
-            latest.merge(position.driverNumber(), position, (existing, candidate) ->
-                    candidate.timestamp().isAfter(existing.timestamp()) ? candidate : existing);
-        }
-        return new ArrayList<>(latest.values());
     }
 
     public record BackfillResult(long sessionKey, int samplesAppended, boolean success, String error) {}

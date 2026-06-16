@@ -24,7 +24,7 @@ All backend commands run from the **repo root** (`f1-visualizer/`), not `f1-fron
 ./scripts/dev-up.sh
 ```
 
-Starts Docker, optionally publishes the Singapore track mesh for session `9161`, then prints env blocks for the API and frontend terminals. When the API starts with `INGESTION_ENABLED=true`, it automatically backfills replay history (~30s) — cars and the timeline appear without Dev Tools.
+Starts Docker, optionally publishes the Singapore track mesh for session `9161`, then prints env blocks for the API and frontend terminals. When the API starts with `DEV_MODE=true` and `INGESTION_ENABLED=true`, it automatically backfills replay history (~30–90s). **Click Play** on the timeline to replay — no login required in dev.
 
 Verify with:
 
@@ -49,7 +49,7 @@ Postgres listens on **host port 5433** (see `docker-compose.yml`: `5433:5432`) t
 INGESTION_ENABLED=true OPENF1_SESSION_KEY=9161 ./mvnw spring-boot:run -pl f1-api
 ```
 
-`9161` is Singapore GP qualifying 2023 — a reliable demo session. Wait for `Started F1VisualizerApplication`, then give bootstrap ~30s to load replay history from OpenF1. Cars and the playback timeline appear automatically; no Dev Tools required. No API keys are required for the basic 3D demo.
+`9161` is Singapore GP qualifying 2023 — a reliable demo session. Wait for `Started F1VisualizerApplication`, then give bootstrap ~30–90s to load replay history from OpenF1. Start the API with `DEV_MODE=true` so Play/scrub work without login. **Click Play** on the timeline to watch the race replay.
 
 Optional: copy `.env.example` to `.env` at the repo root and export the vars (`set -a && source .env && set +a`), or pass them inline as above.
 
@@ -92,6 +92,7 @@ Copy `.env.example` to `.env` at the repo root for a ready-made local profile (n
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | |
 | `INGESTION_ENABLED` | `false` | Set `true` to poll OpenF1 |
 | `INGESTION_AUTO_BOOTSTRAP` | `true` | On startup, backfill replay history when Redis has none |
+| `INGESTION_LIVE_POLL_AFTER_BOOTSTRAP` | `false` | Keep live OpenF1 location polls after bootstrap (false for historical demo) |
 | `OPENF1_SESSION_KEY` | `9161` | OpenF1 session key (e.g. `9161`) |
 | `OPENF1_ACCESS_TOKEN` | — | Optional bearer token for authenticated OpenF1 REST access |
 | `OPENF1_USERNAME` / `OPENF1_PASSWORD` | — | Optional OpenF1 credentials; backend exchanges them for a bearer token |
@@ -108,7 +109,7 @@ Copy `.env.example` to `.env` at the repo root for a ready-made local profile (n
 | `AWS_REGION` / `S3_BUCKET` | `us-east-1` / `f1-visualizer-assets` | Track mesh assets (optional) |
 | `AWS_ENDPOINT_URL` | — | LocalStack S3 (`http://localhost:4566`) |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | — | LocalStack: `test` / `test` |
-| `DEV_MODE` | `false` | Set `true` to enable dev API (`POST /api/dev/**`) |
+| `DEV_MODE` | `false` | Set `true` to enable dev API and unauthenticated playback controls |
 | `TRACK_MESH_ROOT` | `tools/track-mesh` | Path to Python track mesh generator (dev generate endpoint) |
 
 ### Frontend (`f1-frontend/.env`)

@@ -302,7 +302,7 @@ export function TrackMesh(): React.JSX.Element {
       ) : (
         <ProceduralTrackMesh planeSize={planeSize} />
       )}
-      <primitive object={centerLine} />
+      {!trackAssetUrl && <primitive object={centerLine} />}
     </group>
   )
 }
