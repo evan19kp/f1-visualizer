@@ -7,6 +7,7 @@ import type { Position } from '../types/position'
 
 export function useStompPositions(sessionKey: string): void {
   const updatePositions = useRaceStore((s) => s.updatePositions)
+  const setPositions = useRaceStore((s) => s.setPositions)
   const setConnectionStatus = useRaceStore((s) => s.setConnectionStatus)
 
   useEffect(() => {
@@ -36,7 +37,11 @@ export function useStompPositions(sessionKey: string): void {
         subscription = client.subscribe(`/topic/sessions/${sessionKey}/positions`, (message) => {
           try {
             const batch = JSON.parse(message.body) as Position[]
-            updatePositions(batch)
+            if (useRaceStore.getState().replayMode) {
+              setPositions(batch)
+            } else {
+              updatePositions(batch)
+            }
           } catch (error) {
             console.error('Failed to parse STOMP position message:', error)
           }
@@ -59,5 +64,5 @@ export function useStompPositions(sessionKey: string): void {
       client.deactivate()
       safeSetStatus('disconnected')
     }
-  }, [sessionKey, setConnectionStatus, updatePositions])
+  }, [sessionKey, setConnectionStatus, setPositions, updatePositions])
 }

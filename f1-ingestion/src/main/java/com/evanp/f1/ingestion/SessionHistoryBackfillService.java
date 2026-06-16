@@ -125,12 +125,12 @@ public class SessionHistoryBackfillService {
     private void saveDisplayPositions(long sessionKey, Instant start, Instant end) {
         Optional<SessionTimeRange> range = positionStore.getHistoryTimeRange(sessionKey);
         Instant displayInstant = range.map(SessionTimeRange::start).orElse(start);
-        List<NormalizedPosition> frame = positionStore.getFrameAt(sessionKey, displayInstant);
+        List<NormalizedPosition> frame = positionStore.getCompositeFrameAt(sessionKey, displayInstant);
         if (frame.isEmpty()) {
-            frame = positionStore.getFrameAt(sessionKey, end);
+            frame = positionStore.getCompositeFrameAt(sessionKey, end);
         }
         if (!frame.isEmpty()) {
-            positionStore.savePositions(sessionKey, frame);
+            positionStore.setPositions(sessionKey, frame);
         }
     }
 

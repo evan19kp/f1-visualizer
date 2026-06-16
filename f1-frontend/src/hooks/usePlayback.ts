@@ -69,6 +69,7 @@ export function usePlayback(sessionKey: string): {
   seek: (instant: string) => Promise<void>
 } {
   const authToken = useRaceStore((s) => s.authToken)
+  const setReplayMode = useRaceStore((s) => s.setReplayMode)
   const [playback, setPlayback] = useState<PlaybackState | null>(null)
   const [playbackError, setPlaybackError] = useState<string | null>(null)
 
@@ -92,8 +93,15 @@ export function usePlayback(sessionKey: string): {
   useEffect(() => {
     void refresh()
     const interval = window.setInterval(() => void refresh(), 1000)
-    return () => window.clearInterval(interval)
-  }, [refresh])
+    return () => {
+      window.clearInterval(interval)
+      setReplayMode(false)
+    }
+  }, [refresh, setReplayMode])
+
+  useEffect(() => {
+    setReplayMode(false)
+  }, [sessionKey, setReplayMode])
 
   const postPlayback = async (
     path: string,
@@ -123,6 +131,14 @@ export function usePlayback(sessionKey: string): {
     return state
   }
 
+  const enableReplayMode = (): void => {
+    setReplayMode(true)
+  }
+
+  const disableReplayMode = (): void => {
+    setReplayMode(false)
+  }
+
   const wrapControl = async (action: () => Promise<void>): Promise<void> => {
     try {
       await action()
@@ -133,6 +149,7 @@ export function usePlayback(sessionKey: string): {
 
   const play = async (speed = 1): Promise<void> => {
     await wrapControl(async () => {
+      enableReplayMode()
       await postPlayback('/play', { speed })
     })
   }
@@ -140,11 +157,13 @@ export function usePlayback(sessionKey: string): {
   const pause = async (): Promise<void> => {
     await wrapControl(async () => {
       await postPlayback('/pause')
+      disableReplayMode()
     })
   }
 
   const seek = async (instant: string): Promise<void> => {
     await wrapControl(async () => {
+      enableReplayMode()
       await postPlayback('/seek', { instant })
     })
   }

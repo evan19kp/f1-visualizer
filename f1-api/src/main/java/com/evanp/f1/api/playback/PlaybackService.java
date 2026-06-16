@@ -108,11 +108,11 @@ public class PlaybackService {
         if (playback.currentTime == null) {
             return;
         }
-        List<NormalizedPosition> frame = positionStore.getFrameAt(sessionKey, playback.currentTime);
+        List<NormalizedPosition> frame = positionStore.getCompositeFrameAt(sessionKey, playback.currentTime);
         if (frame.isEmpty()) {
             return;
         }
-        positionStore.savePositions(sessionKey, frame);
+        positionStore.setPositions(sessionKey, frame);
     }
 
     private static double clampSpeed(double speed) {
