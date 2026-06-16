@@ -26,6 +26,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -214,6 +215,11 @@ class RedisPositionStoreTest {
     @Test
     void setPositions_replacesHashAndPublishes() throws Exception {
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(redisTemplate.execute(any(SessionCallback.class)))
+                .thenAnswer(invocation -> {
+                    SessionCallback<?> callback = invocation.getArgument(0);
+                    return callback.execute(redisTemplate);
+                });
         long sessionKey = 9161L;
         String key = "f1:session:" + sessionKey + ":positions";
         Instant timestamp = Instant.parse("2024-03-02T15:00:00Z");
@@ -268,5 +274,32 @@ class RedisPositionStoreTest {
         assertThat(composite)
                 .extracting(NormalizedPosition::driverNumber)
                 .containsExactly(1, 2, 3, 4);
+    }
+
+    @Test
+    void getCompositeFrameAt_keepsNewestPositionPerDriver() throws Exception {
+        when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
+        long sessionKey = 9161L;
+        String historyKey = "f1:session:" + sessionKey + ":history";
+        Instant t1 = Instant.parse("2024-03-02T15:00:00Z");
+        Instant t2 = Instant.parse("2024-03-02T15:00:30Z");
+        NormalizedPosition driver1Old = new NormalizedPosition(1, sessionKey, t1, 0.1, 0.2, 0.3);
+        NormalizedPosition driver1New = new NormalizedPosition(1, sessionKey, t2, 9.1, 9.2, 9.3);
+        NormalizedPosition driver2 = new NormalizedPosition(2, sessionKey, t1, 0.4, 0.5, 0.6);
+        String frameT1 = objectMapper.writeValueAsString(List.of(driver1Old, driver2));
+        String frameT2 = objectMapper.writeValueAsString(List.of(driver1New));
+        Set<String> members = new LinkedHashSet<>(List.of(frameT2, frameT1));
+
+        when(zSetOperations.reverseRangeByScore(
+                        historyKey, Double.NEGATIVE_INFINITY, (double) t2.toEpochMilli()))
+                .thenReturn(members);
+
+        List<NormalizedPosition> composite = store.getCompositeFrameAt(sessionKey, t2);
+
+        assertThat(composite).hasSize(2);
+        assertThat(composite.stream().filter(p -> p.driverNumber() == 1).findFirst())
+                .contains(driver1New);
+        assertThat(composite.stream().filter(p -> p.driverNumber() == 2).findFirst())
+                .contains(driver2);
     }
 }

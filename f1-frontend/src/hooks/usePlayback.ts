@@ -149,8 +149,8 @@ export function usePlayback(sessionKey: string): {
 
   const play = async (speed = 1): Promise<void> => {
     await wrapControl(async () => {
-      await postPlayback('/play', { speed })
       enableReplayMode()
+      await postPlayback('/play', { speed })
     })
   }
 
@@ -163,8 +163,8 @@ export function usePlayback(sessionKey: string): {
 
   const seek = async (instant: string): Promise<void> => {
     await wrapControl(async () => {
-      await postPlayback('/seek', { instant })
       enableReplayMode()
+      await postPlayback('/seek', { instant })
     })
   }
 

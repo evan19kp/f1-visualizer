@@ -17,6 +17,9 @@ import java.util.Set;
 import java.util.TreeMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Component;
@@ -49,13 +52,28 @@ public class RedisPositionStore implements PositionStore {
     @Override
     public void setPositions(long sessionKey, List<NormalizedPosition> positions) {
         String key = positionsKey(sessionKey);
-        redis.delete(key);
         if (positions.isEmpty()) {
+            redis.delete(key);
             return;
         }
-        for (NormalizedPosition position : positions) {
-            redis.opsForHash().put(key, String.valueOf(position.driverNumber()), toJson(position));
-        }
+        redis.execute(
+                new SessionCallback<List<Object>>() {
+                    @Override
+                    @SuppressWarnings("unchecked")
+                    public List<Object> execute(RedisOperations operations) throws DataAccessException {
+                        operations.multi();
+                        operations.delete(key);
+                        for (NormalizedPosition position : positions) {
+                            operations
+                                    .opsForHash()
+                                    .put(
+                                            key,
+                                            String.valueOf(position.driverNumber()),
+                                            toJson(position));
+                        }
+                        return operations.exec();
+                    }
+                });
         publishPositions(sessionKey, positions);
     }
 
