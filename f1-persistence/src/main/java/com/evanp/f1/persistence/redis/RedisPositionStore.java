@@ -8,11 +8,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -38,6 +40,19 @@ public class RedisPositionStore implements PositionStore {
             return;
         }
         String key = positionsKey(sessionKey);
+        for (NormalizedPosition position : positions) {
+            redis.opsForHash().put(key, String.valueOf(position.driverNumber()), toJson(position));
+        }
+        publishPositions(sessionKey, positions);
+    }
+
+    @Override
+    public void setPositions(long sessionKey, List<NormalizedPosition> positions) {
+        String key = positionsKey(sessionKey);
+        redis.delete(key);
+        if (positions.isEmpty()) {
+            return;
+        }
         for (NormalizedPosition position : positions) {
             redis.opsForHash().put(key, String.valueOf(position.driverNumber()), toJson(position));
         }
@@ -141,6 +156,34 @@ public class RedisPositionStore implements PositionStore {
             return deserializeFrame(after.iterator().next());
         }
         return deserializeFrame(atOrBefore.iterator().next());
+    }
+
+    @Override
+    public List<NormalizedPosition> getCompositeFrameAt(long sessionKey, Instant instant) {
+        String key = historyKey(sessionKey);
+        double score = instant.toEpochMilli();
+        Set<String> members =
+                redis.opsForZSet().reverseRangeByScore(key, Double.NEGATIVE_INFINITY, score);
+        if (members == null || members.isEmpty()) {
+            Set<String> after = redis.opsForZSet().rangeByScore(key, score, Double.POSITIVE_INFINITY, 0, 1);
+            if (after == null || after.isEmpty()) {
+                return List.of();
+            }
+            return deserializeFrame(after.iterator().next());
+        }
+        Map<Integer, NormalizedPosition> latestByDriver = new TreeMap<>();
+        for (String member : members) {
+            for (NormalizedPosition position : deserializeFrame(member)) {
+                latestByDriver.merge(
+                        position.driverNumber(),
+                        position,
+                        (existing, incoming) ->
+                                incoming.timestamp().isAfter(existing.timestamp()) ? incoming : existing);
+            }
+        }
+        return latestByDriver.values().stream()
+                .sorted(Comparator.comparingInt(NormalizedPosition::driverNumber))
+                .toList();
     }
 
     @Override

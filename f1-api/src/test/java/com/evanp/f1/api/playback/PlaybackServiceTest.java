@@ -43,23 +43,23 @@ class PlaybackServiceTest {
     @Test
     void play_publishesFrameAtCurrentTime() {
         NormalizedPosition position = new NormalizedPosition(44, SESSION_KEY, START, 0.1, 0.2, 0.3);
-        when(positionStore.getFrameAt(SESSION_KEY, START)).thenReturn(List.of(position));
+        when(positionStore.getCompositeFrameAt(SESSION_KEY, START)).thenReturn(List.of(position));
 
         PlaybackState state = playbackService.play(SESSION_KEY, 1.0);
 
         assertThat(state.state()).isEqualTo(PlaybackState.State.PLAYING);
-        verify(positionStore).savePositions(SESSION_KEY, List.of(position));
+        verify(positionStore).setPositions(SESSION_KEY, List.of(position));
     }
 
     @Test
     void seek_jumpsToInstantAndPublishes() {
         Instant seekTo = START.plusSeconds(30);
         NormalizedPosition position = new NormalizedPosition(1, SESSION_KEY, seekTo, 0.4, 0.5, 0.6);
-        when(positionStore.getFrameAt(eq(SESSION_KEY), eq(seekTo))).thenReturn(List.of(position));
+        when(positionStore.getCompositeFrameAt(eq(SESSION_KEY), eq(seekTo))).thenReturn(List.of(position));
 
         PlaybackState state = playbackService.seek(SESSION_KEY, seekTo);
 
         assertThat(state.current()).isEqualTo(seekTo);
-        verify(positionStore).savePositions(SESSION_KEY, List.of(position));
+        verify(positionStore).setPositions(SESSION_KEY, List.of(position));
     }
 }

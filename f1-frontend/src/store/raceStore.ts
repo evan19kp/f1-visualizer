@@ -13,8 +13,11 @@ interface RaceState {
   cameraMode: CameraMode
   authToken: string | null
   trackAssetVersion: number
+  replayMode: boolean
   setSessionKey: (key: string) => void
   updatePositions: (batch: Position[]) => void
+  setPositions: (batch: Position[]) => void
+  setReplayMode: (active: boolean) => void
   setSelectedDriver: (driver: number | null) => void
   setConnectionStatus: (status: ConnectionStatus) => void
   setPositionsFetchError: (error: string | null) => void
@@ -33,8 +36,9 @@ export const useRaceStore = create<RaceState>((set) => ({
   cameraMode: 'orbit',
   authToken: null,
   trackAssetVersion: 0,
+  replayMode: false,
   setSessionKey: (key) =>
-    set({ sessionKey: key, positions: new Map(), positionsFetchError: null }),
+    set({ sessionKey: key, positions: new Map(), positionsFetchError: null, replayMode: false }),
   updatePositions: (batch) =>
     set((state) => {
       const positions = new Map(state.positions)
@@ -43,6 +47,9 @@ export const useRaceStore = create<RaceState>((set) => ({
       }
       return { positions }
     }),
+  setPositions: (batch) =>
+    set({ positions: new Map(batch.map((position) => [position.driverNumber, position])) }),
+  setReplayMode: (active) => set({ replayMode: active }),
   setSelectedDriver: (driver) => set({ selectedDriver: driver }),
   setConnectionStatus: (status) => set({ connectionStatus: status }),
   setPositionsFetchError: (error) => set({ positionsFetchError: error }),

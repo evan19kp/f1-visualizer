@@ -8,6 +8,9 @@ public interface PositionStore {
 
     void savePositions(long sessionKey, List<NormalizedPosition> positions);
 
+    /** Replace the live position hash and publish the full frame (used by replay). */
+    void setPositions(long sessionKey, List<NormalizedPosition> positions);
+
     Optional<NormalizedPosition> getLatest(long sessionKey, int driverNumber);
 
     List<NormalizedPosition> getAllPositions(long sessionKey);
@@ -23,6 +26,9 @@ public interface PositionStore {
     void appendHistory(long sessionKey, List<NormalizedPosition> positions);
 
     List<NormalizedPosition> getFrameAt(long sessionKey, Instant instant);
+
+    /** Nearest-at-or-before sample per driver merged across all history keyframes up to instant. */
+    List<NormalizedPosition> getCompositeFrameAt(long sessionKey, Instant instant);
 
     boolean hasHistory(long sessionKey);
 

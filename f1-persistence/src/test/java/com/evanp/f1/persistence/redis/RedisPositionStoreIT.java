@@ -92,4 +92,32 @@ class RedisPositionStoreIT extends AbstractContainersIT {
         assertThat(store.getFrameAt(SESSION_KEY, t1.minusSeconds(1))).containsExactly(first);
         assertThat(store.getFrameAt(SESSION_KEY, t2.plusSeconds(1))).containsExactly(second);
     }
+
+    @Test
+    void getCompositeFrameAt_mergesDriversAcrossHistoryKeyframes() {
+        Instant t1 = Instant.parse("2024-03-02T15:00:00Z");
+        Instant t2 = Instant.parse("2024-03-02T15:00:05Z");
+        NormalizedPosition driver1 = new NormalizedPosition(1, SESSION_KEY, t1, 0.1, 0.2, 0.3);
+        NormalizedPosition driver2 = new NormalizedPosition(2, SESSION_KEY, t1, 0.4, 0.5, 0.6);
+        NormalizedPosition driver3 = new NormalizedPosition(3, SESSION_KEY, t2, 0.7, 0.8, 0.9);
+
+        store.appendHistory(SESSION_KEY, List.of(driver1, driver2));
+        store.appendHistory(SESSION_KEY, List.of(driver3));
+
+        assertThat(store.getCompositeFrameAt(SESSION_KEY, t2))
+                .extracting(NormalizedPosition::driverNumber)
+                .containsExactly(1, 2, 3);
+    }
+
+    @Test
+    void setPositions_replacesPriorDrivers() {
+        Instant timestamp = Instant.parse("2024-03-02T15:00:00Z");
+        NormalizedPosition first = new NormalizedPosition(1, SESSION_KEY, timestamp, 0.1, 0.2, 0.3);
+        NormalizedPosition second = new NormalizedPosition(44, SESSION_KEY, timestamp, 0.4, 0.5, 0.6);
+
+        store.savePositions(SESSION_KEY, List.of(first, second));
+        store.setPositions(SESSION_KEY, List.of(first));
+
+        assertThat(store.getAllPositions(SESSION_KEY)).containsExactly(first);
+    }
 }
