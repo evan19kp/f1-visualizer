@@ -26,7 +26,9 @@ public class IngestionStatusController {
                 snapshot.resolvedSessionKey(),
                 snapshot.lastPollAt(),
                 snapshot.lastError(),
-                snapshot.autoBootstrap()));
+                snapshot.autoBootstrap(),
+                snapshot.bootstrapStatus().name().toLowerCase(),
+                snapshot.historyReady()));
     }
 
     public record IngestionStatusResponse(
@@ -35,5 +37,7 @@ public class IngestionStatusController {
             long resolvedSessionKey,
             Instant lastPollAt,
             String lastError,
-            boolean autoBootstrap) {}
+            boolean autoBootstrap,
+            String bootstrapStatus,
+            boolean historyReady) {}
 }

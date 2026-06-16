@@ -12,19 +12,22 @@ public class IngestionScheduler {
     private final IngestionService ingestionService;
     private final StintIngestionService stintIngestionService;
     private final OpenF1Client openF1Client;
+    private final IngestionStatusService ingestionStatusService;
 
     public IngestionScheduler(
             IngestionService ingestionService,
             StintIngestionService stintIngestionService,
-            OpenF1Client openF1Client) {
+            OpenF1Client openF1Client,
+            IngestionStatusService ingestionStatusService) {
         this.ingestionService = ingestionService;
         this.stintIngestionService = stintIngestionService;
         this.openF1Client = openF1Client;
+        this.ingestionStatusService = ingestionStatusService;
     }
 
     @Scheduled(fixedDelayString = "${app.openf1.poll-interval-ms}")
     public void tick() {
-        if (openF1Client.isRateLimited()) {
+        if (openF1Client.isRateLimited() || ingestionStatusService.isBootstrapRunning()) {
             return;
         }
         ingestionService.pollOnce();
@@ -32,7 +35,7 @@ public class IngestionScheduler {
 
     @Scheduled(fixedDelayString = "${app.openf1.stint-poll-interval-ms:30000}")
     public void pollStints() {
-        if (openF1Client.isRateLimited()) {
+        if (openF1Client.isRateLimited() || ingestionStatusService.isBootstrapRunning()) {
             return;
         }
         stintIngestionService.pollOnce();

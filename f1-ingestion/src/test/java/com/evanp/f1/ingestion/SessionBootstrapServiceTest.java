@@ -37,26 +37,31 @@ class SessionBootstrapServiceTest {
     @Mock
     private SessionHistoryBackfillService backfillService;
 
+    @Mock
+    private IngestionStatusService ingestionStatusService;
+
     private SessionBootstrapService sessionBootstrapService;
 
     @BeforeEach
     void setUp() {
         sessionBootstrapService = new SessionBootstrapService(
-                new IngestionProperties(true, String.valueOf(SESSION_KEY), true),
+                new IngestionProperties(true, String.valueOf(SESSION_KEY), true, false),
                 sessionKeyResolver,
                 positionStore,
                 sessionMetadataSync,
-                backfillService);
+                backfillService,
+                ingestionStatusService);
     }
 
     @Test
-    void bootstrapOnStartup_skipsWhenAutoBootstrapDisabled() throws Exception {
+    void bootstrapOnStartup_skipsWhenAutoBootstrapDisabled() {
         SessionBootstrapService disabled = new SessionBootstrapService(
-                new IngestionProperties(true, String.valueOf(SESSION_KEY), false),
+                new IngestionProperties(true, String.valueOf(SESSION_KEY), false, false),
                 sessionKeyResolver,
                 positionStore,
                 sessionMetadataSync,
-                backfillService);
+                backfillService,
+                ingestionStatusService);
 
         disabled.bootstrapOnStartup();
 
@@ -64,7 +69,7 @@ class SessionBootstrapServiceTest {
     }
 
     @Test
-    void bootstrapOnStartup_backfillsWhenHistoryMissing() throws Exception {
+    void bootstrapOnStartup_backfillsWhenHistoryMissing() {
         when(sessionKeyResolver.resolveNumericKey(String.valueOf(SESSION_KEY))).thenReturn(SESSION_KEY);
         when(positionStore.hasHistory(SESSION_KEY)).thenReturn(false);
         when(backfillService.backfill(String.valueOf(SESSION_KEY), true))
@@ -72,8 +77,10 @@ class SessionBootstrapServiceTest {
 
         sessionBootstrapService.bootstrapOnStartup();
 
+        verify(ingestionStatusService, timeout(5000)).markBootstrapRunning();
         verify(sessionMetadataSync, timeout(5000)).syncIfNeeded(String.valueOf(SESSION_KEY));
         verify(backfillService, timeout(5000)).backfill(String.valueOf(SESSION_KEY), true);
+        verify(ingestionStatusService, timeout(5000)).markBootstrapComplete();
     }
 
     @Test

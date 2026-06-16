@@ -39,7 +39,7 @@ class SessionResetServiceTest {
         when(positionStore.clearSession(SESSION_KEY)).thenReturn(cleared);
         when(sessionKeyResolver.resolveNumericKey("9161")).thenReturn(SESSION_KEY);
         sessionResetService = new SessionResetService(
-                positionStore, new IngestionProperties(true, "9161", false), ingestionService, sessionKeyResolver);
+                positionStore, new IngestionProperties(true, "9161", false, false), ingestionService, sessionKeyResolver);
 
         SessionResetResponse response = sessionResetService.reset(SESSION_KEY);
 
@@ -53,7 +53,7 @@ class SessionResetServiceTest {
         when(positionStore.clearSession(SESSION_KEY)).thenReturn(List.of());
         when(sessionKeyResolver.resolveNumericKey("latest")).thenReturn(SESSION_KEY);
         sessionResetService = new SessionResetService(
-                positionStore, new IngestionProperties(true, "latest", false), ingestionService, sessionKeyResolver);
+                positionStore, new IngestionProperties(true, "latest", false, false), ingestionService, sessionKeyResolver);
 
         SessionResetResponse response = sessionResetService.reset(SESSION_KEY);
 
@@ -65,7 +65,7 @@ class SessionResetServiceTest {
     void reset_skipsReingestWhenIngestionDisabled() {
         when(positionStore.clearSession(SESSION_KEY)).thenReturn(List.of());
         sessionResetService = new SessionResetService(
-                positionStore, new IngestionProperties(false, "9161", false), ingestionService, sessionKeyResolver);
+                positionStore, new IngestionProperties(false, "9161", false, false), ingestionService, sessionKeyResolver);
 
         SessionResetResponse response = sessionResetService.reset(SESSION_KEY);
 
@@ -78,7 +78,7 @@ class SessionResetServiceTest {
         when(positionStore.clearSession(SESSION_KEY)).thenReturn(List.of());
         when(sessionKeyResolver.resolveNumericKey("7953")).thenReturn(7953L);
         sessionResetService = new SessionResetService(
-                positionStore, new IngestionProperties(true, "7953", false), ingestionService, sessionKeyResolver);
+                positionStore, new IngestionProperties(true, "7953", false, false), ingestionService, sessionKeyResolver);
 
         SessionResetResponse response = sessionResetService.reset(SESSION_KEY);
 
@@ -92,7 +92,7 @@ class SessionResetServiceTest {
         when(positionStore.clearSession(SESSION_KEY)).thenReturn(cleared);
         when(sessionKeyResolver.resolveNumericKey("9161")).thenReturn(SESSION_KEY);
         sessionResetService = new SessionResetService(
-                positionStore, new IngestionProperties(true, "9161", false), ingestionService, sessionKeyResolver);
+                positionStore, new IngestionProperties(true, "9161", false, false), ingestionService, sessionKeyResolver);
         doThrow(new RuntimeException("OpenF1 unavailable")).when(ingestionService).pollOnce();
 
         SessionResetResponse response = sessionResetService.reset(SESSION_KEY);

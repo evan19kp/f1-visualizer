@@ -10,6 +10,8 @@ export interface IngestionStatus {
   lastPollAt: string | null
   lastError: string
   autoBootstrap: boolean
+  bootstrapStatus: 'idle' | 'running' | 'complete' | 'failed'
+  historyReady: boolean
 }
 
 export function useIngestionStatus(): IngestionStatus | null {
@@ -60,12 +62,15 @@ export interface PlaybackState {
 
 export function usePlayback(sessionKey: string): {
   playback: PlaybackState | null
+  playbackError: string | null
+  clearPlaybackError: () => void
   play: (speed?: number) => Promise<void>
   pause: () => Promise<void>
   seek: (instant: string) => Promise<void>
 } {
   const authToken = useRaceStore((s) => s.authToken)
   const [playback, setPlayback] = useState<PlaybackState | null>(null)
+  const [playbackError, setPlaybackError] = useState<string | null>(null)
 
   const refresh = useCallback(async (): Promise<void> => {
     if (!sessionKey) {
@@ -90,21 +95,22 @@ export function usePlayback(sessionKey: string): {
     return () => window.clearInterval(interval)
   }, [refresh])
 
-  const authorizedPost = async (
+  const postPlayback = async (
     path: string,
     body?: Record<string, unknown>,
   ): Promise<PlaybackState | null> => {
-    await ensureDevAuth()
-    const token = useRaceStore.getState().authToken ?? authToken
-    if (!token) {
-      throw new Error('Dev auth required for playback controls')
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (!import.meta.env.DEV) {
+      await ensureDevAuth()
+      const token = useRaceStore.getState().authToken ?? authToken
+      if (!token) {
+        throw new Error('Login required for playback controls')
+      }
+      headers.Authorization = `Bearer ${token}`
     }
     const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback${path}`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     })
     if (!response.ok) {
@@ -112,20 +118,37 @@ export function usePlayback(sessionKey: string): {
     }
     const state = (await response.json()) as PlaybackState
     setPlayback(state)
+    setPlaybackError(null)
     return state
   }
 
+  const wrapControl = async (action: () => Promise<void>): Promise<void> => {
+    try {
+      await action()
+    } catch (error) {
+      setPlaybackError(error instanceof Error ? error.message : 'Playback control failed')
+    }
+  }
+
   const play = async (speed = 1): Promise<void> => {
-    await authorizedPost('/play', { speed })
+    await wrapControl(async () => {
+      await postPlayback('/play', { speed })
+    })
   }
 
   const pause = async (): Promise<void> => {
-    await authorizedPost('/pause')
+    await wrapControl(async () => {
+      await postPlayback('/pause')
+    })
   }
 
   const seek = async (instant: string): Promise<void> => {
-    await authorizedPost('/seek', { instant })
+    await wrapControl(async () => {
+      await postPlayback('/seek', { instant })
+    })
   }
 
-  return { playback, play, pause, seek }
+  const clearPlaybackError = (): void => setPlaybackError(null)
+
+  return { playback, playbackError, clearPlaybackError, play, pause, seek }
 }

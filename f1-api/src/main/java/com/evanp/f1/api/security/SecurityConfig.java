@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -37,6 +38,7 @@ public class SecurityConfig {
             Environment environment,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             DevModeFilter devModeFilter,
+            DevProperties devProperties,
             @Value("${app.cors.allowed-origins:}") String corsOrigins)
             throws Exception {
         // CSRF stays enabled in prod: JWT is sent via Authorization header (not cookies), so SPA
@@ -50,44 +52,62 @@ public class SecurityConfig {
         }
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health", "/actuator/health/**")
-                        .permitAll()
-                        .requestMatchers("/error")
-                        .permitAll()
-                        .requestMatchers("/api/auth/**")
-                        .permitAll()
-                        .requestMatchers("/ws/**")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/sessions")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/sessions/*")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/sessions/*/positions")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/sessions/*/positions/*")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/sessions/*/bounds")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/sessions/*/track-asset")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/sessions/*/stints")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/sessions/*/stints/*")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/ingestion/status")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/sessions/*/playback")
-                        .permitAll()
-                        .requestMatchers("/api/dev/**")
-                        .authenticated()
-                        .requestMatchers("/api/**")
-                        .authenticated()
-                        .anyRequest()
-                        .authenticated())
+                .authorizeHttpRequests(authorizeRequests(devProperties))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(devModeFilter, JwtAuthenticationFilter.class);
         return http.build();
+    }
+
+    private static Customizer<
+                    org.springframework.security.config.annotation.web.configurers
+                            .AuthorizeHttpRequestsConfigurer<
+                                    org.springframework.security.config.annotation.web.builders.HttpSecurity>
+                                    .AuthorizationManagerRequestMatcherRegistry>
+            authorizeRequests(DevProperties devProperties) {
+        return auth -> {
+            auth.requestMatchers("/actuator/health", "/actuator/health/**")
+                    .permitAll()
+                    .requestMatchers("/error")
+                    .permitAll()
+                    .requestMatchers("/api/auth/**")
+                    .permitAll()
+                    .requestMatchers("/ws/**")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/sessions")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/sessions/*")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/sessions/*/positions")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/sessions/*/positions/*")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/sessions/*/bounds")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/sessions/*/track-asset")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/sessions/*/stints")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/sessions/*/stints/*")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/ingestion/status")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/sessions/*/playback")
+                    .permitAll();
+            if (devProperties.enabled()) {
+                auth.requestMatchers(HttpMethod.POST, "/api/sessions/*/playback/play")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/sessions/*/playback/pause")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/sessions/*/playback/seek")
+                        .permitAll();
+            }
+            auth.requestMatchers("/api/dev/**")
+                    .authenticated()
+                    .requestMatchers("/api/**")
+                    .authenticated()
+                    .anyRequest()
+                    .authenticated();
+        };
     }
 
     private static boolean isProduction(Environment environment) {

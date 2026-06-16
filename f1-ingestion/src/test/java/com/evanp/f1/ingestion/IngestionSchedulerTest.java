@@ -23,11 +23,15 @@ class IngestionSchedulerTest {
     @Mock
     private OpenF1Client openF1Client;
 
+    @Mock
+    private IngestionStatusService ingestionStatusService;
+
     private IngestionScheduler scheduler;
 
     @BeforeEach
     void setUp() {
-        scheduler = new IngestionScheduler(ingestionService, stintIngestionService, openF1Client);
+        scheduler = new IngestionScheduler(
+                ingestionService, stintIngestionService, openF1Client, ingestionStatusService);
     }
 
     @Test
@@ -40,8 +44,19 @@ class IngestionSchedulerTest {
     }
 
     @Test
+    void tick_skipsWhenBootstrapRunning() {
+        when(openF1Client.isRateLimited()).thenReturn(false);
+        when(ingestionStatusService.isBootstrapRunning()).thenReturn(true);
+
+        scheduler.tick();
+
+        verify(ingestionService, never()).pollOnce();
+    }
+
+    @Test
     void tick_pollsWhenNotRateLimited() {
         when(openF1Client.isRateLimited()).thenReturn(false);
+        when(ingestionStatusService.isBootstrapRunning()).thenReturn(false);
 
         scheduler.tick();
 
@@ -58,8 +73,19 @@ class IngestionSchedulerTest {
     }
 
     @Test
+    void pollStints_skipsWhenBootstrapRunning() {
+        when(openF1Client.isRateLimited()).thenReturn(false);
+        when(ingestionStatusService.isBootstrapRunning()).thenReturn(true);
+
+        scheduler.pollStints();
+
+        verify(stintIngestionService, never()).pollOnce();
+    }
+
+    @Test
     void pollStints_pollsWhenNotRateLimited() {
         when(openF1Client.isRateLimited()).thenReturn(false);
+        when(ingestionStatusService.isBootstrapRunning()).thenReturn(false);
 
         scheduler.pollStints();
 

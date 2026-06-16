@@ -42,6 +42,6 @@ export VITE_DEV_AUTH_PASS=changeme
 npm install
 npm run dev
 
-Then open http://localhost:5173 — session history loads automatically on API startup (~30s). Press Play on the timeline when it appears.
+Then open http://localhost:5173 — wait for session history to load (~30–90s), then press **Play** on the timeline. Playback controls work without login when the API runs with DEV_MODE=true.
 
 EOF
