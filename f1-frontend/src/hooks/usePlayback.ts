@@ -100,13 +100,14 @@ export function usePlayback(sessionKey: string): {
     body?: Record<string, unknown>,
   ): Promise<PlaybackState | null> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (!import.meta.env.DEV) {
+    if (import.meta.env.DEV) {
       await ensureDevAuth()
-      const token = useRaceStore.getState().authToken ?? authToken
-      if (!token) {
-        throw new Error('Login required for playback controls')
-      }
+    }
+    const token = useRaceStore.getState().authToken ?? authToken
+    if (token) {
       headers.Authorization = `Bearer ${token}`
+    } else if (!import.meta.env.DEV) {
+      throw new Error('Login required for playback controls')
     }
     const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback${path}`, {
       method: 'POST',

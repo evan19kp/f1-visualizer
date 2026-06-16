@@ -61,13 +61,13 @@ public class IngestionService {
         if (!properties.enabled()) {
             return;
         }
-        if (ingestionStatusService.isBootstrapRunning()) {
-            return;
-        }
-        if (!properties.livePollAfterBootstrap() && shouldSkipHistoricalLivePoll()) {
-            return;
-        }
         try {
+            if (ingestionStatusService.isBootstrapRunning()) {
+                return;
+            }
+            if (!properties.livePollAfterBootstrap() && shouldSkipHistoricalLivePoll()) {
+                return;
+            }
             String configKey = properties.sessionKey();
             try {
                 sessionMetadataSync.syncIfNeeded(configKey);

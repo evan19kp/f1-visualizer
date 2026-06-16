@@ -1,6 +1,7 @@
 package com.evanp.f1.ingestion;
 
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -77,10 +79,11 @@ class SessionBootstrapServiceTest {
 
         sessionBootstrapService.bootstrapOnStartup();
 
-        verify(ingestionStatusService, timeout(5000)).markBootstrapRunning();
-        verify(sessionMetadataSync, timeout(5000)).syncIfNeeded(String.valueOf(SESSION_KEY));
-        verify(backfillService, timeout(5000)).backfill(String.valueOf(SESSION_KEY), true);
-        verify(ingestionStatusService, timeout(5000)).markBootstrapComplete();
+        InOrder order = inOrder(ingestionStatusService, sessionMetadataSync, backfillService);
+        order.verify(ingestionStatusService, timeout(5000)).markBootstrapRunning();
+        order.verify(sessionMetadataSync, timeout(5000)).syncIfNeeded(String.valueOf(SESSION_KEY));
+        order.verify(backfillService, timeout(5000)).backfill(String.valueOf(SESSION_KEY), true);
+        order.verify(ingestionStatusService, timeout(5000)).markBootstrapComplete();
     }
 
     @Test
@@ -95,6 +98,8 @@ class SessionBootstrapServiceTest {
 
         sessionBootstrapService.bootstrapOnStartup();
 
+        verify(ingestionStatusService).markBootstrapComplete();
+        verify(ingestionStatusService, never()).markBootstrapRunning();
         verify(backfillService, never()).backfill(org.mockito.ArgumentMatchers.any(), eq(true));
         verify(positionStore).savePositions(SESSION_KEY, List.of(position));
     }

@@ -66,18 +66,19 @@ public class IngestionStatusService {
     }
 
     public Snapshot snapshot() {
-        long resolved = resolveSessionKey();
         if (!properties.enabled()) {
+            Long cached = lastResolvedSessionKey.get();
             return new Snapshot(
                     false,
                     properties.sessionKey(),
-                    resolved,
+                    cached != null ? cached : -1L,
                     lastPollAt.get(),
                     "ingestion_disabled",
                     properties.autoBootstrap(),
                     bootstrapStatus.get(),
                     false);
         }
+        long resolved = resolveSessionKey();
         return new Snapshot(
                 true,
                 properties.sessionKey(),
@@ -94,7 +95,11 @@ public class IngestionStatusService {
         if (cached != null) {
             return cached;
         }
-        return sessionKeyResolver.resolveNumericKey(properties.sessionKey());
+        long resolved = sessionKeyResolver.resolveNumericKey(properties.sessionKey());
+        if (resolved >= 0) {
+            lastResolvedSessionKey.set(resolved);
+        }
+        return resolved;
     }
 
     boolean isHistoryReady(long sessionKey) {

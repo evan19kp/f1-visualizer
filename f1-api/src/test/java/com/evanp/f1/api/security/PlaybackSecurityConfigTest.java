@@ -50,6 +50,7 @@ class PlaybackSecurityConfigTest {
     @BeforeEach
     void stubPlayback() {
         when(playbackService.play(anyLong(), anyDouble())).thenReturn(STUB_STATE);
+        when(playbackService.pause(anyLong())).thenReturn(STUB_STATE);
         when(playbackService.seek(anyLong(), any(Instant.class))).thenReturn(STUB_STATE);
     }
 
@@ -58,6 +59,13 @@ class PlaybackSecurityConfigTest {
         mockMvc.perform(post("/api/sessions/9161/playback/play")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"speed\":1}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void playbackPause_isPermittedWithoutAuthWhenDevModeEnabled() throws Exception {
+        mockMvc.perform(post("/api/sessions/9161/playback/pause")
+                        .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
     }
 

@@ -52,7 +52,7 @@ public class SecurityConfig {
         }
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-                .authorizeHttpRequests(authorizeRequests(devProperties))
+                .authorizeHttpRequests(authorizeRequests(devProperties, environment))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(devModeFilter, JwtAuthenticationFilter.class);
         return http.build();
@@ -63,7 +63,7 @@ public class SecurityConfig {
                             .AuthorizeHttpRequestsConfigurer<
                                     org.springframework.security.config.annotation.web.builders.HttpSecurity>
                                     .AuthorizationManagerRequestMatcherRegistry>
-            authorizeRequests(DevProperties devProperties) {
+            authorizeRequests(DevProperties devProperties, Environment environment) {
         return auth -> {
             auth.requestMatchers("/actuator/health", "/actuator/health/**")
                     .permitAll()
@@ -93,7 +93,7 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/sessions/*/playback")
                     .permitAll();
-            if (devProperties.enabled()) {
+            if (devProperties.enabled() && !isProduction(environment)) {
                 auth.requestMatchers(HttpMethod.POST, "/api/sessions/*/playback/play")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/sessions/*/playback/pause")
