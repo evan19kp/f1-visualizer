@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { API_URL } from '../../config/session'
-import { ensureDevAuth } from '../../lib/auth'
+import { clearAuthIfUnauthorized } from '../../lib/auth'
 import { useRaceStore } from '../../store/raceStore'
 import type { RaceInsight } from '../../types/insight'
 
@@ -16,10 +16,6 @@ export function InsightFeed(): React.JSX.Element {
   const authToken = useRaceStore((s) => s.authToken)
   const [insights, setInsights] = useState<RaceInsight[]>([])
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    void ensureDevAuth()
-  }, [])
 
   useEffect(() => {
     if (!sessionKey || !authToken) {
@@ -45,6 +41,7 @@ export function InsightFeed(): React.JSX.Element {
           },
         )
         if (!response.ok) {
+          clearAuthIfUnauthorized(response.status)
           throw new Error(`Insights request failed: ${response.status}`)
         }
         const data = (await response.json()) as RaceInsight[]
@@ -93,7 +90,11 @@ export function InsightFeed(): React.JSX.Element {
         AI Insights
       </h2>
       {!authToken ? (
-        <p className="text-sm text-zinc-500">Authenticating…</p>
+        <p className="text-sm text-zinc-500">
+          {import.meta.env.DEV && import.meta.env.VITE_DEV_AUTOLOGIN === 'true'
+            ? 'Authenticating…'
+            : 'Log in to view AI insights'}
+        </p>
       ) : error ? (
         <p className="text-sm text-amber-400">{error}</p>
       ) : insights.length === 0 ? (

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { AuthPanel } from './components/hud/AuthPanel'
 import { ConnectionBanner } from './components/hud/ConnectionBanner'
 import { DevToolsPanel } from './components/hud/DevToolsPanel'
 import { PlaybackBar } from './components/hud/PlaybackBar'
@@ -10,6 +11,7 @@ import { SessionPicker } from './components/hud/SessionPicker'
 import { TireWidget } from './components/hud/TireWidget'
 import { RaceCanvas } from './components/scene/RaceCanvas'
 import { resolveInitialSessionKey } from './config/session'
+import { ensureDevAuth, restoreAuthFromStorage } from './lib/auth'
 import { useInitialPositions } from './hooks/useInitialPositions'
 import { useIngestionStatus, usePlayback } from './hooks/usePlayback'
 import { useStompPositions } from './hooks/useStompPositions'
@@ -34,6 +36,11 @@ export default function App(): React.JSX.Element {
   const setSessionKey = useRaceStore((s) => s.setSessionKey)
 
   useEffect(() => {
+    restoreAuthFromStorage()
+    void ensureDevAuth()
+  }, [])
+
+  useEffect(() => {
     setSessionKey(resolveInitialSessionKey())
   }, [setSessionKey])
 
@@ -51,6 +58,7 @@ export default function App(): React.JSX.Element {
           {STATUS_LABEL[connectionStatus]}
         </span>
         <SessionPicker />
+        <AuthPanel />
         <DevToolsPanel />
         <span className="text-sm text-zinc-400">
           Drivers <span className="font-mono text-zinc-200">{positions.size}</span>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { API_URL } from '../config/session'
-import { ensureDevAuth } from '../lib/auth'
+import { clearAuthIfUnauthorized, ensureDevAuth } from '../lib/auth'
 import { useRaceStore } from '../store/raceStore'
 
 export interface IngestionStatus {
@@ -123,6 +123,7 @@ export function usePlayback(sessionKey: string): {
       body: body ? JSON.stringify(body) : undefined,
     })
     if (!response.ok) {
+      clearAuthIfUnauthorized(response.status)
       throw new Error(`Playback request failed: ${response.status}`)
     }
     const state = (await response.json()) as PlaybackState
