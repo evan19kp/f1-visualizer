@@ -6,19 +6,82 @@ interface LoginResponse {
   expiresInMs: number
 }
 
+interface StoredAuthSession {
+  token: string
+  username: string
+  expiresAt: number
+}
+
+const AUTH_STORAGE_KEY = 'f1.auth.session'
+
+function readStoredSession(): StoredAuthSession | null {
+  try {
+    const raw = sessionStorage.getItem(AUTH_STORAGE_KEY)
+    if (!raw) {
+      return null
+    }
+    const parsed = JSON.parse(raw) as StoredAuthSession
+    if (
+      typeof parsed.token !== 'string' ||
+      typeof parsed.username !== 'string' ||
+      typeof parsed.expiresAt !== 'number'
+    ) {
+      return null
+    }
+    if (parsed.expiresAt <= Date.now()) {
+      sessionStorage.removeItem(AUTH_STORAGE_KEY)
+      return null
+    }
+    return parsed
+  } catch {
+    sessionStorage.removeItem(AUTH_STORAGE_KEY)
+    return null
+  }
+}
+
+function persistSession(session: StoredAuthSession): void {
+  sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session))
+}
+
+export function restoreAuthFromStorage(): void {
+  const stored = readStoredSession()
+  if (stored) {
+    useRaceStore.getState().setAuthSession(stored.token, stored.username)
+  }
+}
+
+export function logout(): void {
+  sessionStorage.removeItem(AUTH_STORAGE_KEY)
+  useRaceStore.getState().setAuthSession(null, null)
+}
+
 export async function login(username: string, password: string): Promise<string> {
+  const trimmedUsername = username.trim()
+  if (!trimmedUsername || !password) {
+    throw new Error('Username and password are required')
+  }
+
   const response = await fetch(`${API_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username: trimmedUsername, password }),
   })
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Invalid username or password')
+    }
     throw new Error(`Login failed: ${response.status}`)
   }
 
   const data = (await response.json()) as LoginResponse
-  useRaceStore.getState().setAuthToken(data.token)
+  const expiresAt = Date.now() + data.expiresInMs
+  persistSession({
+    token: data.token,
+    username: trimmedUsername,
+    expiresAt,
+  })
+  useRaceStore.getState().setAuthSession(data.token, trimmedUsername)
   return data.token
 }
 
@@ -45,5 +108,11 @@ export async function ensureDevAuth(): Promise<void> {
     await login(username, password)
   } catch (error) {
     console.warn('Dev auto-login failed:', error)
+  }
+}
+
+export function clearAuthIfUnauthorized(status: number): void {
+  if (status === 401) {
+    logout()
   }
 }
