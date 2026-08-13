@@ -8,31 +8,38 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@react-three/drei": "^9.117.3",
+    "@react-three/fiber": "^8.17.10",
+    "@stomp/stompjs": "^7.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@react-three/fiber": "^8.17.10",
-    "@react-three/drei": "^9.117.3",
+    "sockjs-client": "^1.6.1",
     "three": "^0.158.0",
-    "zustand": "^4.5.5",
-    "@stomp/stompjs": "^7.0.0",
-    "sockjs-client": "^1.6.1"
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.4",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@types/three": "^0.158.3",
     "@types/sockjs-client": "^1.5.4",
+    "@types/three": "^0.158.3",
     "@typescript-eslint/eslint-plugin": "^8.18.1",
     "@typescript-eslint/parser": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.17.0",
+    "jsdom": "^29.1.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
-    "vite": "^6.0.5"
+    "vite": "^6.0.5",
+    "vitest": "^4.1.10"
   }
 }
