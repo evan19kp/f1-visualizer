@@ -62,6 +62,15 @@ export interface PlaybackState {
 
 const PLAYBACK_REQUEST_TIMEOUT_MS = 8_000
 
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    error.name === 'AbortError'
+  )
+}
+
 export function usePlayback(sessionKey: string): {
   playback: PlaybackState | null
   playbackError: string | null
@@ -137,7 +146,7 @@ export function usePlayback(sessionKey: string): {
         if (
           active &&
           controlGeneration === controlGenerationRef.current &&
-          !(error instanceof DOMException && error.name === 'AbortError')
+          !isAbortError(error)
         ) {
           setPlayback(null)
           setPlaybackSessionKey(sessionKey)
@@ -176,8 +185,12 @@ export function usePlayback(sessionKey: string): {
     activeControlControllerRef.current?.abort()
     const controller = new AbortController()
     activeControlControllerRef.current = controller
+    let requestTimedOut = false
     const requestTimeout = window.setTimeout(
-      () => controller.abort(),
+      () => {
+        requestTimedOut = true
+        controller.abort()
+      },
       PLAYBACK_REQUEST_TIMEOUT_MS,
     )
     try {
@@ -214,6 +227,18 @@ export function usePlayback(sessionKey: string): {
       setPlaybackError(null)
       setPlaybackErrorSessionKey(requestedKey)
       return state
+    } catch (error) {
+      if (isAbortError(error)) {
+        if (
+          !requestTimedOut ||
+          sessionKeyRef.current !== requestedKey ||
+          controlGenerationRef.current !== controlId
+        ) {
+          return null
+        }
+        throw new Error('Playback request timed out')
+      }
+      throw error
     } finally {
       window.clearTimeout(requestTimeout)
       if (activeControlControllerRef.current === controller) {

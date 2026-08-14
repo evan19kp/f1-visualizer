@@ -308,6 +308,7 @@ describe('usePlayback', () => {
       await seekDone
     })
     expect(getCount).toBe(1)
+    expect(result.current.playbackError).toBe('Playback request timed out')
 
     await act(async () => {
       vi.advanceTimersByTime(1_000)
@@ -315,6 +316,69 @@ describe('usePlayback', () => {
 
     expect(getCount).toBe(2)
     expect(result.current.playback?.current).toBe('recovered-poll')
+  })
+
+  it('ignores a delayed abort from a superseded control', async () => {
+    let rejectFirstSeek!: (reason?: unknown) => void
+    let firstSeekAborted = false
+    let postCount = 0
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (method === 'GET' && url.includes('/api/sessions/111/playback')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(playbackState('initial-poll')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      if (method === 'POST' && url.includes('/api/sessions/111/playback/seek')) {
+        postCount += 1
+        if (postCount === 1) {
+          return new Promise<Response>((_resolve, reject) => {
+            rejectFirstSeek = reject
+            init?.signal?.addEventListener('abort', () => {
+              firstSeekAborted = true
+            })
+          })
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify(playbackState('seek-2')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected url: ${method} ${url}`))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback('111'))
+    await waitFor(() => {
+      expect(result.current.playback?.current).toBe('initial-poll')
+    })
+
+    let firstSeekDone!: Promise<void>
+    await act(async () => {
+      firstSeekDone = result.current.seek('2023-01-01T00:10:00Z')
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      await result.current.seek('2023-01-01T00:20:00Z')
+    })
+    expect(firstSeekAborted).toBe(true)
+    expect(result.current.playback?.current).toBe('seek-2')
+    expect(result.current.playbackError).toBeNull()
+
+    await act(async () => {
+      rejectFirstSeek(new DOMException('Aborted', 'AbortError'))
+      await firstSeekDone
+    })
+
+    expect(result.current.playback?.current).toBe('seek-2')
+    expect(result.current.playbackError).toBeNull()
   })
 
   it('does not expose the previous session playback after the session key changes', async () => {
