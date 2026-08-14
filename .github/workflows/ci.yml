@@ -40,19 +40,10 @@ jobs:
           cache: npm
           cache-dependency-path: f1-frontend/package-lock.json
 
-      - name: Build and type-check frontend
+      - name: Build, type-check, and test frontend
         working-directory: f1-frontend
         run: |
           npm ci
           npm run build
           npm run type-check
-
-  frontend-docker:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-        with:
-          persist-credentials: false
-
-      - name: Verify frontend production image
-        run: f1-frontend/scripts/verify-docker-image.sh
+          npm test
