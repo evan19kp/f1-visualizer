@@ -37,7 +37,6 @@ Last updated: 2026-08-14 — via PR #47: test(frontend): add automated test foun
 - Frontend automated coverage for WebSocket/replay/HUD flows and browser e2e — source: PR #47 deferred scope; current tests cover only track progress, race state, auth, and the connection banner; backend/data/browser runtime matrix not defined for e2e
 - ESLint 9 flat config — source: PR #47 deferred scope; `npm run lint` unusable without flat config
 - npm audit dependency remediation — source: PR #47 deferred scope; five findings outside test-runner patch
-- Frontend production container/image — source: inferred gap (README: build `dist/` and serve statically; no frontend Dockerfile)
 - Real timing-based gaps / race order (intervals/laps) — source: inferred gap from geometric Gap Tower vs stated “race visualization” intent
 - Concurrent multi-session ingestion/control — source: inferred from single configured session key + picker warning
 - Driver identity beyond car number (names/teams) — source: inferred gap (UI labels `#driverNumber` only; no drivers API/client)
