@@ -8,17 +8,16 @@ export default [
   { ignores: ['dist'] },
   js.configs.recommended,
   ...tsPlugin.configs['flat/recommended'],
+  reactHooks.configs.flat.recommended,
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       globals: globals.browser,
     },
     plugins: {
-      'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
     },
     rules: {
-      ...reactHooks.configs.flat.rules,
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

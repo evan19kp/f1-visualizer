@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { API_URL } from '../config/session'
 import { clearAuthIfUnauthorized, ensureDevAuth } from '../lib/auth'
 import { useRaceStore } from '../store/raceStore'
@@ -73,31 +73,43 @@ export function usePlayback(sessionKey: string): {
   const [playback, setPlayback] = useState<PlaybackState | null>(null)
   const [playbackError, setPlaybackError] = useState<string | null>(null)
 
-  const refresh = useCallback(async (): Promise<void> => {
+  useEffect(() => {
     if (!sessionKey) {
-      setPlayback(null)
       return
     }
-    try {
-      const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback`)
-      if (response.ok) {
-        setPlayback((await response.json()) as PlaybackState)
-      } else {
-        setPlayback(null)
-      }
-    } catch {
-      setPlayback(null)
-    }
-  }, [sessionKey])
 
-  useEffect(() => {
-    void refresh()
-    const interval = window.setInterval(() => void refresh(), 1000)
+    const controller = new AbortController()
+    let active = true
+
+    const poll = async (): Promise<void> => {
+      try {
+        const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback`, {
+          signal: controller.signal,
+        })
+        if (!active) {
+          return
+        }
+        if (response.ok) {
+          setPlayback((await response.json()) as PlaybackState)
+        } else {
+          setPlayback(null)
+        }
+      } catch (error) {
+        if (active && !(error instanceof DOMException && error.name === 'AbortError')) {
+          setPlayback(null)
+        }
+      }
+    }
+
+    void poll()
+    const interval = window.setInterval(() => void poll(), 1000)
     return () => {
+      active = false
+      controller.abort()
       window.clearInterval(interval)
       setReplayMode(false)
     }
-  }, [refresh, setReplayMode])
+  }, [sessionKey, setReplayMode])
 
   useEffect(() => {
     setReplayMode(false)
@@ -171,5 +183,8 @@ export function usePlayback(sessionKey: string): {
 
   const clearPlaybackError = (): void => setPlaybackError(null)
 
-  return { playback, playbackError, clearPlaybackError, play, pause, seek }
+  // Derive empty-session playback instead of syncing null via setState-in-effect.
+  const activePlayback = sessionKey ? playback : null
+
+  return { playback: activePlayback, playbackError, clearPlaybackError, play, pause, seek }
 }

@@ -91,7 +91,7 @@ function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
         color: SCENE_COLORS.trackPlane,
         side: DoubleSide,
       }),
-    [scene],
+    [],
   )
   const clonedScene = useMemo(() => {
     const clone = scene.clone()
@@ -195,7 +195,6 @@ export function TrackMesh(): React.JSX.Element {
 
   useEffect(() => {
     if (!sessionKey) {
-      setTrackAssetUrl(null)
       return
     }
 
@@ -242,6 +241,8 @@ export function TrackMesh(): React.JSX.Element {
 
     return () => controller.abort()
   }, [sessionKey, trackAssetVersion])
+
+  const resolvedTrackAssetUrl = sessionKey ? trackAssetUrl : null
 
   useEffect(() => {
     if (rafRef.current !== null) {
@@ -290,19 +291,19 @@ export function TrackMesh(): React.JSX.Element {
 
   return (
     <group>
-      {trackAssetUrl ? (
+      {resolvedTrackAssetUrl ? (
         <GlbTrackErrorBoundary
-          key={trackAssetUrl}
+          key={resolvedTrackAssetUrl}
           fallback={<ProceduralTrackMesh planeSize={planeSize} />}
         >
           <Suspense fallback={<ProceduralTrackMesh planeSize={planeSize} />}>
-            <GlbTrackMesh url={trackAssetUrl} />
+            <GlbTrackMesh url={resolvedTrackAssetUrl} />
           </Suspense>
         </GlbTrackErrorBoundary>
       ) : (
         <ProceduralTrackMesh planeSize={planeSize} />
       )}
-      {!trackAssetUrl && <primitive object={centerLine} />}
+      {!resolvedTrackAssetUrl && <primitive object={centerLine} />}
     </group>
   )
 }

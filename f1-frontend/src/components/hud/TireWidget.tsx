@@ -21,7 +21,6 @@ export function TireWidget(): React.JSX.Element {
 
   useEffect(() => {
     if (!sessionKey || selectedDriver == null) {
-      setStint(null)
       return
     }
 
@@ -59,10 +58,13 @@ export function TireWidget(): React.JSX.Element {
     }
   }, [sessionKey, selectedDriver])
 
+  const activeStint = sessionKey && selectedDriver != null ? stint : null
   const driverLabel = selectedDriver != null ? `#${selectedDriver}` : '—'
-  const compoundLabel = stint != null ? formatCompound(stint.compound) : '—'
+  const compoundLabel = activeStint != null ? formatCompound(activeStint.compound) : '—'
   const ageLabel =
-    stint?.tyreAgeAtStart != null ? `${stint.tyreAgeAtStart} lap${stint.tyreAgeAtStart === 1 ? '' : 's'}` : null
+    activeStint?.tyreAgeAtStart != null
+      ? `${activeStint.tyreAgeAtStart} lap${activeStint.tyreAgeAtStart === 1 ? '' : 's'}`
+      : null
 
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-950/85 px-3 py-2 backdrop-blur-sm">

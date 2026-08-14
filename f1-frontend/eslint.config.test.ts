@@ -9,6 +9,11 @@ describe('ESLint flat config', () => {
     expect(config.languageOptions?.parser).toBeDefined()
     expect(config.plugins?.['@typescript-eslint']).toBeDefined()
     expect(config.plugins?.['react-hooks']).toBeDefined()
+    // Guard against the v7 flat-config pitfall where the plugin loads but rules stay empty.
+    // ESLint exposes severities as numbers: 0 off, 1 warn, 2 error.
+    expect(config.rules?.['react-hooks/rules-of-hooks']).toEqual([2])
+    expect(config.rules?.['react-hooks/exhaustive-deps']).toEqual([1])
+    expect(config.rules?.['react-hooks/set-state-in-effect']).toEqual([2])
   })
 
   it('lints the project with zero errors and warnings', async () => {

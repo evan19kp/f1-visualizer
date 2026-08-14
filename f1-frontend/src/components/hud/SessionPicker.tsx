@@ -20,15 +20,17 @@ export function SessionPicker(): React.JSX.Element {
   const setSessionKey = useRaceStore((s) => s.setSessionKey)
   const [input, setInput] = useState(sessionKey)
   const [error, setError] = useState<string | null>(null)
+  const [syncedSessionKey, setSyncedSessionKey] = useState(sessionKey)
   const [sessions, setSessions] = useState<RaceSession[]>([])
   const [listError, setListError] = useState<string | null>(null)
   const ingestionStatus = useIngestionStatus()
   const configuredKey = ingestionStatus?.configuredSessionKey ?? DEFAULT_SESSION_KEY
 
-  useEffect(() => {
+  if (sessionKey !== syncedSessionKey) {
+    setSyncedSessionKey(sessionKey)
     setInput(sessionKey)
     setError(null)
-  }, [sessionKey])
+  }
 
   useEffect(() => {
     const controller = new AbortController()
