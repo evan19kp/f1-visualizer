@@ -1,5 +1,5 @@
 import { useGLTF } from '@react-three/drei'
-import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import {
   BufferGeometry,
   DoubleSide,
@@ -9,30 +9,17 @@ import {
   Mesh,
   MeshStandardMaterial,
 } from 'three'
-import { API_URL } from '../../config/session'
 import {
   CENTER_LINE_MOVE_THRESHOLD,
   CENTER_LINE_Y_OFFSET,
   SCENE_COLORS,
   TRACK_SCALE,
 } from '../../config/scene'
+import { useTrackAssetUrl } from '../../hooks/useTrackAssetUrl'
 import { useRaceStore } from '../../store/raceStore'
 import type { Position } from '../../types/position'
 import { positionToVector3 } from '../../utils/scenePosition'
 import { resolveTrackAssetUrl } from '../../utils/trackAssetUrl'
-
-interface TrackAssetResponse {
-  url: string
-  circuitSlug: string
-}
-
-function isTrackAssetResponse(value: unknown): value is TrackAssetResponse {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-  const payload = value as Record<string, unknown>
-  return typeof payload.url === 'string' && typeof payload.circuitSlug === 'string'
-}
 
 function buildCenterLineVertices(drivers: Position[]): Float32Array | null {
   if (drivers.length < 2) {
@@ -82,7 +69,7 @@ function updateCenterLineGeometry(geometry: BufferGeometry, vertices: Float32Arr
   geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3))
 }
 
-function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
+export function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
   const loadUrl = useMemo(() => resolveTrackAssetUrl(url), [url])
   const { scene } = useGLTF(loadUrl)
   const trackMaterial = useMemo(
@@ -91,7 +78,7 @@ function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
         color: SCENE_COLORS.trackPlane,
         side: DoubleSide,
       }),
-    [scene],
+    [],
   )
   const clonedScene = useMemo(() => {
     const clone = scene.clone()
@@ -107,13 +94,9 @@ function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
   useEffect(() => {
     return () => {
       trackMaterial.dispose()
-      clonedScene.traverse((object) => {
-        if (object instanceof Mesh) {
-          object.geometry.dispose()
-        }
-      })
+      // scene.clone() shares geometry with useGLTF's cache; the loader owns its disposal.
     }
-  }, [clonedScene, trackMaterial])
+  }, [trackMaterial])
 
   return (
     <primitive
@@ -171,7 +154,7 @@ export function TrackMesh(): React.JSX.Element {
   const sessionKey = useRaceStore((state) => state.sessionKey)
   const trackAssetVersion = useRaceStore((state) => state.trackAssetVersion)
   const positions = useRaceStore((state) => state.positions)
-  const [trackAssetUrl, setTrackAssetUrl] = useState<string | null>(null)
+  const resolvedTrackAssetUrl = useTrackAssetUrl(sessionKey, trackAssetVersion)
 
   const centerLine = useMemo(
     () =>
@@ -192,56 +175,6 @@ export function TrackMesh(): React.JSX.Element {
       ;(centerLine.material as LineBasicMaterial).dispose()
     }
   }, [centerLine])
-
-  useEffect(() => {
-    if (!sessionKey) {
-      setTrackAssetUrl(null)
-      return
-    }
-
-    const controller = new AbortController()
-    void (async () => {
-      try {
-        const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/track-asset`, {
-          signal: controller.signal,
-        })
-        if (response.status === 404) {
-          setTrackAssetUrl(null)
-          return
-        }
-        if (!response.ok) {
-          if (import.meta.env.DEV) {
-            console.warn(
-              `TrackMesh: track-asset request failed (${response.status}) for session ${sessionKey}`,
-            )
-          }
-          setTrackAssetUrl(null)
-          return
-        }
-
-        const payload: unknown = await response.json()
-        if (isTrackAssetResponse(payload)) {
-          setTrackAssetUrl(payload.url)
-          return
-        }
-
-        if (import.meta.env.DEV) {
-          console.error(`TrackMesh: invalid track-asset payload for session ${sessionKey}`, payload)
-        }
-        setTrackAssetUrl(null)
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return
-        }
-        if (import.meta.env.DEV) {
-          console.error(`TrackMesh: failed to fetch track-asset for session ${sessionKey}`, error)
-        }
-        setTrackAssetUrl(null)
-      }
-    })()
-
-    return () => controller.abort()
-  }, [sessionKey, trackAssetVersion])
 
   useEffect(() => {
     if (rafRef.current !== null) {
@@ -290,19 +223,19 @@ export function TrackMesh(): React.JSX.Element {
 
   return (
     <group>
-      {trackAssetUrl ? (
+      {resolvedTrackAssetUrl ? (
         <GlbTrackErrorBoundary
-          key={trackAssetUrl}
+          key={resolvedTrackAssetUrl}
           fallback={<ProceduralTrackMesh planeSize={planeSize} />}
         >
           <Suspense fallback={<ProceduralTrackMesh planeSize={planeSize} />}>
-            <GlbTrackMesh url={trackAssetUrl} />
+            <GlbTrackMesh url={resolvedTrackAssetUrl} />
           </Suspense>
         </GlbTrackErrorBoundary>
       ) : (
         <ProceduralTrackMesh planeSize={planeSize} />
       )}
-      {!trackAssetUrl && <primitive object={centerLine} />}
+      {!resolvedTrackAssetUrl && <primitive object={centerLine} />}
     </group>
   )
 }

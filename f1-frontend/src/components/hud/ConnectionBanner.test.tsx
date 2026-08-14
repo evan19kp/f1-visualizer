@@ -49,4 +49,18 @@ describe('ConnectionBanner', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss connection notice' }))
     expect(screen.getByRole('status')).toHaveTextContent('Positions request failed: 503')
   })
+
+  it('re-shows a dismissed notice when the connection signal changes', () => {
+    useRaceStore.setState({ connectionStatus: 'disconnected' })
+    const { rerender } = render(<ConnectionBanner />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss connection notice' }))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+
+    useRaceStore.setState({ connectionStatus: 'connecting' })
+    rerender(<ConnectionBanner />)
+    act(() => vi.advanceTimersByTime(10_000))
+
+    expect(screen.getByRole('status')).toHaveTextContent('Cannot reach race server')
+  })
 })

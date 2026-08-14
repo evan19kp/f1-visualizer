@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { API_URL } from '../config/session'
 import { clearAuthIfUnauthorized, ensureDevAuth } from '../lib/auth'
 import { useRaceStore } from '../store/raceStore'
@@ -60,6 +60,17 @@ export interface PlaybackState {
   historyLoaded: boolean
 }
 
+const PLAYBACK_REQUEST_TIMEOUT_MS = 8_000
+
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    error.name === 'AbortError'
+  )
+}
+
 export function usePlayback(sessionKey: string): {
   playback: PlaybackState | null
   playbackError: string | null
@@ -71,33 +82,93 @@ export function usePlayback(sessionKey: string): {
   const authToken = useRaceStore((s) => s.authToken)
   const setReplayMode = useRaceStore((s) => s.setReplayMode)
   const [playback, setPlayback] = useState<PlaybackState | null>(null)
+  const [playbackSessionKey, setPlaybackSessionKey] = useState(sessionKey)
   const [playbackError, setPlaybackError] = useState<string | null>(null)
+  const [playbackErrorSessionKey, setPlaybackErrorSessionKey] = useState(sessionKey)
+  // Latest session key for in-flight control responses. Synced in an effect so we
+  // do not write refs during render (react-hooks/refs).
+  const sessionKeyRef = useRef(sessionKey)
+  const controlGenerationRef = useRef(0)
+  const pendingControlRef = useRef<number | null>(null)
+  const activePollControllerRef = useRef<AbortController | null>(null)
+  const activeControlControllerRef = useRef<AbortController | null>(null)
 
-  const refresh = useCallback(async (): Promise<void> => {
-    if (!sessionKey) {
-      setPlayback(null)
-      return
-    }
-    try {
-      const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback`)
-      if (response.ok) {
-        setPlayback((await response.json()) as PlaybackState)
-      } else {
-        setPlayback(null)
-      }
-    } catch {
-      setPlayback(null)
+  useEffect(() => {
+    sessionKeyRef.current = sessionKey
+    controlGenerationRef.current += 1
+    pendingControlRef.current = null
+    return () => {
+      activePollControllerRef.current?.abort()
+      activeControlControllerRef.current?.abort()
     }
   }, [sessionKey])
 
   useEffect(() => {
-    void refresh()
-    const interval = window.setInterval(() => void refresh(), 1000)
+    if (!sessionKey) {
+      return
+    }
+
+    let active = true
+    let pollInFlight = false
+
+    const poll = async (): Promise<void> => {
+      if (pollInFlight || pendingControlRef.current !== null) {
+        return
+      }
+
+      pollInFlight = true
+      const controlGeneration = controlGenerationRef.current
+      const controller = new AbortController()
+      activePollControllerRef.current = controller
+      const requestTimeout = window.setTimeout(
+        () => controller.abort(),
+        PLAYBACK_REQUEST_TIMEOUT_MS,
+      )
+      try {
+        const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback`, {
+          signal: controller.signal,
+        })
+        if (!active || controlGeneration !== controlGenerationRef.current) {
+          return
+        }
+        if (!response.ok) {
+          setPlayback(null)
+          setPlaybackSessionKey(sessionKey)
+          return
+        }
+        const data = (await response.json()) as PlaybackState
+        if (!active || controlGeneration !== controlGenerationRef.current) {
+          return
+        }
+        setPlayback(data)
+        setPlaybackSessionKey(sessionKey)
+      } catch (error) {
+        if (
+          active &&
+          controlGeneration === controlGenerationRef.current &&
+          !isAbortError(error)
+        ) {
+          setPlayback(null)
+          setPlaybackSessionKey(sessionKey)
+        }
+      } finally {
+        window.clearTimeout(requestTimeout)
+        if (activePollControllerRef.current === controller) {
+          activePollControllerRef.current = null
+        }
+        pollInFlight = false
+      }
+    }
+
+    void poll()
+    const interval = window.setInterval(() => void poll(), 1000)
     return () => {
+      active = false
+      activePollControllerRef.current?.abort()
       window.clearInterval(interval)
       setReplayMode(false)
     }
-  }, [refresh, setReplayMode])
+  }, [sessionKey, setReplayMode])
 
   useEffect(() => {
     setReplayMode(false)
@@ -107,29 +178,76 @@ export function usePlayback(sessionKey: string): {
     path: string,
     body?: Record<string, unknown>,
   ): Promise<PlaybackState | null> => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (import.meta.env.DEV) {
-      await ensureDevAuth()
+    const requestedKey = sessionKey
+    const controlId = ++controlGenerationRef.current
+    pendingControlRef.current = controlId
+    activePollControllerRef.current?.abort()
+    activeControlControllerRef.current?.abort()
+    const controller = new AbortController()
+    activeControlControllerRef.current = controller
+    let requestTimedOut = false
+    const requestTimeout = window.setTimeout(
+      () => {
+        requestTimedOut = true
+        controller.abort()
+      },
+      PLAYBACK_REQUEST_TIMEOUT_MS,
+    )
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (import.meta.env.DEV) {
+        await ensureDevAuth()
+      }
+      const token = useRaceStore.getState().authToken ?? authToken
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      } else if (!import.meta.env.DEV) {
+        throw new Error('Login required for playback controls')
+      }
+      const response = await fetch(`${API_URL}/api/sessions/${requestedKey}/playback${path}`, {
+        method: 'POST',
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        clearAuthIfUnauthorized(response.status)
+        throw new Error(`Playback request failed: ${response.status}`)
+      }
+      const state = (await response.json()) as PlaybackState
+      // Session or a newer control may have changed while this request was in flight.
+      if (
+        sessionKeyRef.current !== requestedKey ||
+        controlGenerationRef.current !== controlId
+      ) {
+        return null
+      }
+      setPlayback(state)
+      setPlaybackSessionKey(requestedKey)
+      setPlaybackError(null)
+      setPlaybackErrorSessionKey(requestedKey)
+      return state
+    } catch (error) {
+      if (isAbortError(error)) {
+        if (
+          !requestTimedOut ||
+          sessionKeyRef.current !== requestedKey ||
+          controlGenerationRef.current !== controlId
+        ) {
+          return null
+        }
+        throw new Error('Playback request timed out')
+      }
+      throw error
+    } finally {
+      window.clearTimeout(requestTimeout)
+      if (activeControlControllerRef.current === controller) {
+        activeControlControllerRef.current = null
+      }
+      if (pendingControlRef.current === controlId) {
+        pendingControlRef.current = null
+      }
     }
-    const token = useRaceStore.getState().authToken ?? authToken
-    if (token) {
-      headers.Authorization = `Bearer ${token}`
-    } else if (!import.meta.env.DEV) {
-      throw new Error('Login required for playback controls')
-    }
-    const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback${path}`, {
-      method: 'POST',
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    })
-    if (!response.ok) {
-      clearAuthIfUnauthorized(response.status)
-      throw new Error(`Playback request failed: ${response.status}`)
-    }
-    const state = (await response.json()) as PlaybackState
-    setPlayback(state)
-    setPlaybackError(null)
-    return state
   }
 
   const enableReplayMode = (): void => {
@@ -141,10 +259,15 @@ export function usePlayback(sessionKey: string): {
   }
 
   const wrapControl = async (action: () => Promise<void>): Promise<void> => {
+    const requestedKey = sessionKey
     try {
       await action()
     } catch (error) {
+      if (sessionKeyRef.current !== requestedKey) {
+        return
+      }
       setPlaybackError(error instanceof Error ? error.message : 'Playback control failed')
+      setPlaybackErrorSessionKey(requestedKey)
     }
   }
 
@@ -156,9 +279,12 @@ export function usePlayback(sessionKey: string): {
   }
 
   const pause = async (): Promise<void> => {
+    const requestedKey = sessionKey
     await wrapControl(async () => {
-      await postPlayback('/pause')
-      disableReplayMode()
+      const state = await postPlayback('/pause')
+      if (state !== null && sessionKeyRef.current === requestedKey) {
+        disableReplayMode()
+      }
     })
   }
 
@@ -171,5 +297,18 @@ export function usePlayback(sessionKey: string): {
 
   const clearPlaybackError = (): void => setPlaybackError(null)
 
-  return { playback, playbackError, clearPlaybackError, play, pause, seek }
+  // Only expose playback/error that belong to the active session (avoids setState-in-effect clears
+  // and prevents a prior session's poll/control result from flashing under a new key).
+  const activePlayback = sessionKey && playbackSessionKey === sessionKey ? playback : null
+  const activePlaybackError =
+    sessionKey && playbackErrorSessionKey === sessionKey ? playbackError : null
+
+  return {
+    playback: activePlayback,
+    playbackError: activePlaybackError,
+    clearPlaybackError,
+    play,
+    pause,
+    seek,
+  }
 }
