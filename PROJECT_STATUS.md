@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-08-13 — via initial assessment (bootstrap)
+Last updated: 2026-08-14 — via PR #45: feat: frontend production container/image
 
 ## Completed
 - Maven multi-module backend (`f1-core`, `f1-persistence`, `f1-ingestion`, `f1-ai`, `f1-api`) with Spring Boot API entrypoint — verified by: module layout + `F1VisualizerApplication`
@@ -22,6 +22,7 @@ Last updated: 2026-08-13 — via initial assessment (bootstrap)
 - Local infra compose (Postgres/Redis/LocalStack) + API Dockerfile + optional `api` compose profile — verified by: `docker-compose.yml`, `Dockerfile`
 - CI: backend `./mvnw verify` + frontend build/type-check — verified by: `.github/workflows/ci.yml` (workflow execution on GitHub unverified this session)
 - Dev bootstrap scripts `scripts/dev-up.sh` / `scripts/dev-check.sh` — verified by: files present (script execution unverified this session)
+- [PR #45] Frontend production Docker image: Vite build with `VITE_*` args, nginx SPA + `/api`/`/ws` proxy to `API_BACKEND`, `/health`, compose `--profile frontend` (:8081), CI `frontend-docker` job + `verify-docker-image.sh` — 2026-08-14
 
 ## In Progress
 - Frontend auth UX — state: `login()` + `ensureDevAuth()` exist (`lib/auth.ts`); used by insights/dev/playback in DEV; no login page/form or production auth flow UI
@@ -35,7 +36,6 @@ Last updated: 2026-08-13 — via initial assessment (bootstrap)
 ## Planned
 - Production frontend login UI using `POST /api/auth/login` — source: README “AI & auth” / production notes (explicitly says do not rely on `VITE_DEV_AUTOLOGIN`)
 - Frontend automated tests — source: inferred gap (`f1-frontend/package.json` has no test runner/script; CI only build + type-check)
-- Frontend production container/image — source: inferred gap (README: build `dist/` and serve statically; no frontend Dockerfile)
 - Real timing-based gaps / race order (intervals/laps) — source: inferred gap from geometric Gap Tower vs stated “race visualization” intent
 - Concurrent multi-session ingestion/control — source: inferred from single configured session key + picker warning
 - Driver identity beyond car number (names/teams) — source: inferred gap (UI labels `#driverNumber` only; no drivers API/client)
@@ -53,6 +53,10 @@ Last updated: 2026-08-13 — via initial assessment (bootstrap)
 - `RaceEventType.UNDERCUT` / `OVERTAKE` appear only in tests/prompts today — detector never produces them
 - GitHub issues/PRs unavailable in this environment (`gh` not installed) — tracker items not cross-checked
 - Integration tests (`*IT`) and full `./mvnw verify` not run in this bootstrap (Docker/Testcontainers required)
+- Split-origin static-only nginx config for frontend — surfaced in PR #45, deferred because: `VITE_*` build args supported but no separate nginx-only config (proxy blocks unused in split-origin)
+- TLS termination in frontend container — surfaced in PR #45, deferred because: left to external reverse proxy/ingress
+- `/track-assets` nginx proxy in prod frontend — surfaced in PR #45, deferred because: dev-only LocalStack CORS workaround; prod uses presigned S3 URLs directly
+- End-to-end compose smoke test in CI (frontend + api stack) — surfaced in PR #45, deferred because: CI only builds image and checks `/health` + index HTML via `verify-docker-image.sh`
 
 ## Open Questions
 - Is the north-star a polished single-session replay demo, or a multi-user live multi-session product? README/demo defaults emphasize session `9161`; prod notes imply broader deployability.
