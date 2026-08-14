@@ -25,19 +25,17 @@ afterEach(() => {
 })
 
 describe('usePlayback', () => {
-  it('ignores an older same-session poll that resolves after a newer poll', async () => {
+  it('does not let a newer failing tick suppress an in-flight successful poll', async () => {
     let resolveFirstPoll!: (value: Response) => void
-    let resolveSecondPoll!: (value: Response) => void
     const firstPoll = new Promise<Response>((resolve) => {
       resolveFirstPoll = resolve
-    })
-    const secondPoll = new Promise<Response>((resolve) => {
-      resolveSecondPoll = resolve
     })
     const fetchMock = vi
       .fn()
       .mockReturnValueOnce(firstPoll)
-      .mockReturnValueOnce(secondPoll)
+      .mockResolvedValueOnce(
+        new Response(null, { status: 500 }),
+      )
       .mockImplementation(() => new Promise<Response>(() => {}))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -47,30 +45,65 @@ describe('usePlayback', () => {
     await act(async () => {
       vi.advanceTimersByTime(1_000)
     })
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-
-    await act(async () => {
-      resolveSecondPoll(
-        new Response(JSON.stringify(playbackState('newer-poll')), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      )
-      await secondPoll
-    })
-    expect(result.current.playback?.current).toBe('newer-poll')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
 
     await act(async () => {
       resolveFirstPoll(
-        new Response(JSON.stringify(playbackState('older-poll')), {
+        new Response(JSON.stringify(playbackState('first-poll')), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         }),
       )
       await firstPoll
     })
+    expect(result.current.playback?.current).toBe('first-poll')
 
-    expect(result.current.playback?.current).toBe('newer-poll')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(result.current.playback?.current).toBe('first-poll')
+  })
+
+  it('does not let a poll started before a control overwrite the control response', async () => {
+    let resolvePoll!: (value: Response) => void
+    const pollResponse = new Promise<Response>((resolve) => {
+      resolvePoll = resolve
+    })
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (method === 'GET' && url.includes('/api/sessions/111/playback')) {
+        return pollResponse
+      }
+      if (method === 'POST' && url.includes('/api/sessions/111/playback/seek')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(playbackState('seek-result')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected url: ${method} ${url}`))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback('111'))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await result.current.seek('2023-01-01T00:30:00Z')
+    })
+    expect(result.current.playback?.current).toBe('seek-result')
+
+    await act(async () => {
+      resolvePoll(
+        new Response(JSON.stringify(playbackState('stale-poll')), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      await pollResponse
+    })
+
+    expect(result.current.playback?.current).toBe('seek-result')
   })
 
   it('does not expose the previous session playback after the session key changes', async () => {

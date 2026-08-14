@@ -77,9 +77,13 @@ export function usePlayback(sessionKey: string): {
   // Latest session key for in-flight control responses. Synced in an effect so we
   // do not write refs during render (react-hooks/refs).
   const sessionKeyRef = useRef(sessionKey)
+  const controlGenerationRef = useRef(0)
+  const pendingControlRef = useRef<number | null>(null)
 
   useEffect(() => {
     sessionKeyRef.current = sessionKey
+    controlGenerationRef.current += 1
+    pendingControlRef.current = null
   }, [sessionKey])
 
   useEffect(() => {
@@ -89,34 +93,44 @@ export function usePlayback(sessionKey: string): {
 
     const controller = new AbortController()
     let active = true
-    let nextPollId = 0
-    let latestAppliedPollId = 0
-
-    const applyPlayback = (next: PlaybackState | null, pollId: number): void => {
-      if (!active || pollId < latestAppliedPollId) {
-        return
-      }
-      latestAppliedPollId = pollId
-      setPlayback(next)
-      setPlaybackSessionKey(sessionKey)
-    }
+    let pollInFlight = false
 
     const poll = async (): Promise<void> => {
-      const pollId = ++nextPollId
+      if (pollInFlight || pendingControlRef.current !== null) {
+        return
+      }
+
+      pollInFlight = true
+      const controlGeneration = controlGenerationRef.current
       try {
         const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback`, {
           signal: controller.signal,
         })
+        if (!active || controlGeneration !== controlGenerationRef.current) {
+          return
+        }
         if (!response.ok) {
-          applyPlayback(null, pollId)
+          setPlayback(null)
+          setPlaybackSessionKey(sessionKey)
           return
         }
         const data = (await response.json()) as PlaybackState
-        applyPlayback(data, pollId)
-      } catch (error) {
-        if (active && !(error instanceof DOMException && error.name === 'AbortError')) {
-          applyPlayback(null, pollId)
+        if (!active || controlGeneration !== controlGenerationRef.current) {
+          return
         }
+        setPlayback(data)
+        setPlaybackSessionKey(sessionKey)
+      } catch (error) {
+        if (
+          active &&
+          controlGeneration === controlGenerationRef.current &&
+          !(error instanceof DOMException && error.name === 'AbortError')
+        ) {
+          setPlayback(null)
+          setPlaybackSessionKey(sessionKey)
+        }
+      } finally {
+        pollInFlight = false
       }
     }
 
@@ -139,35 +153,46 @@ export function usePlayback(sessionKey: string): {
     body?: Record<string, unknown>,
   ): Promise<PlaybackState | null> => {
     const requestedKey = sessionKey
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (import.meta.env.DEV) {
-      await ensureDevAuth()
-    }
-    const token = useRaceStore.getState().authToken ?? authToken
-    if (token) {
-      headers.Authorization = `Bearer ${token}`
-    } else if (!import.meta.env.DEV) {
-      throw new Error('Login required for playback controls')
-    }
-    const response = await fetch(`${API_URL}/api/sessions/${requestedKey}/playback${path}`, {
-      method: 'POST',
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    })
-    if (!response.ok) {
-      clearAuthIfUnauthorized(response.status)
-      throw new Error(`Playback request failed: ${response.status}`)
-    }
-    const state = (await response.json()) as PlaybackState
-    // Session may have changed while the control request was in flight — do not clobber.
-    if (sessionKeyRef.current !== requestedKey) {
+    const controlId = ++controlGenerationRef.current
+    pendingControlRef.current = controlId
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (import.meta.env.DEV) {
+        await ensureDevAuth()
+      }
+      const token = useRaceStore.getState().authToken ?? authToken
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      } else if (!import.meta.env.DEV) {
+        throw new Error('Login required for playback controls')
+      }
+      const response = await fetch(`${API_URL}/api/sessions/${requestedKey}/playback${path}`, {
+        method: 'POST',
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      })
+      if (!response.ok) {
+        clearAuthIfUnauthorized(response.status)
+        throw new Error(`Playback request failed: ${response.status}`)
+      }
+      const state = (await response.json()) as PlaybackState
+      // Session or a newer control may have changed while this request was in flight.
+      if (
+        sessionKeyRef.current !== requestedKey ||
+        controlGenerationRef.current !== controlId
+      ) {
+        return state
+      }
+      setPlayback(state)
+      setPlaybackSessionKey(requestedKey)
+      setPlaybackError(null)
+      setPlaybackErrorSessionKey(requestedKey)
       return state
+    } finally {
+      if (pendingControlRef.current === controlId) {
+        pendingControlRef.current = null
+      }
     }
-    setPlayback(state)
-    setPlaybackSessionKey(requestedKey)
-    setPlaybackError(null)
-    setPlaybackErrorSessionKey(requestedKey)
-    return state
   }
 
   const enableReplayMode = (): void => {
