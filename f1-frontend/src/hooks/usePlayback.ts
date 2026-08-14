@@ -71,6 +71,7 @@ export function usePlayback(sessionKey: string): {
   const authToken = useRaceStore((s) => s.authToken)
   const setReplayMode = useRaceStore((s) => s.setReplayMode)
   const [playback, setPlayback] = useState<PlaybackState | null>(null)
+  const [playbackSessionKey, setPlaybackSessionKey] = useState(sessionKey)
   const [playbackError, setPlaybackError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -81,22 +82,28 @@ export function usePlayback(sessionKey: string): {
     const controller = new AbortController()
     let active = true
 
+    const applyPlayback = (next: PlaybackState | null): void => {
+      if (!active) {
+        return
+      }
+      setPlayback(next)
+      setPlaybackSessionKey(sessionKey)
+    }
+
     const poll = async (): Promise<void> => {
       try {
         const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback`, {
           signal: controller.signal,
         })
-        if (!active) {
+        if (!response.ok) {
+          applyPlayback(null)
           return
         }
-        if (response.ok) {
-          setPlayback((await response.json()) as PlaybackState)
-        } else {
-          setPlayback(null)
-        }
+        const data = (await response.json()) as PlaybackState
+        applyPlayback(data)
       } catch (error) {
         if (active && !(error instanceof DOMException && error.name === 'AbortError')) {
-          setPlayback(null)
+          applyPlayback(null)
         }
       }
     }
@@ -140,6 +147,7 @@ export function usePlayback(sessionKey: string): {
     }
     const state = (await response.json()) as PlaybackState
     setPlayback(state)
+    setPlaybackSessionKey(sessionKey)
     setPlaybackError(null)
     return state
   }
@@ -183,8 +191,9 @@ export function usePlayback(sessionKey: string): {
 
   const clearPlaybackError = (): void => setPlaybackError(null)
 
-  // Derive empty-session playback instead of syncing null via setState-in-effect.
-  const activePlayback = sessionKey ? playback : null
+  // Only expose playback that belongs to the active session (avoids setState-in-effect clears
+  // and prevents a prior session's poll/control result from flashing under a new key).
+  const activePlayback = sessionKey && playbackSessionKey === sessionKey ? playback : null
 
   return { playback: activePlayback, playbackError, clearPlaybackError, play, pause, seek }
 }

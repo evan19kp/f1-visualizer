@@ -19,7 +19,7 @@ import {
 import { useRaceStore } from '../../store/raceStore'
 import type { Position } from '../../types/position'
 import { positionToVector3 } from '../../utils/scenePosition'
-import { resolveTrackAssetUrl } from '../../utils/trackAssetUrl'
+import { resolveTrackAssetUrl, trackAssetUrlForSession } from '../../utils/trackAssetUrl'
 
 interface TrackAssetResponse {
   url: string
@@ -171,7 +171,7 @@ export function TrackMesh(): React.JSX.Element {
   const sessionKey = useRaceStore((state) => state.sessionKey)
   const trackAssetVersion = useRaceStore((state) => state.trackAssetVersion)
   const positions = useRaceStore((state) => state.positions)
-  const [trackAssetUrl, setTrackAssetUrl] = useState<string | null>(null)
+  const [trackAsset, setTrackAsset] = useState<{ sessionKey: string; url: string } | null>(null)
 
   const centerLine = useMemo(
     () =>
@@ -199,13 +199,17 @@ export function TrackMesh(): React.JSX.Element {
     }
 
     const controller = new AbortController()
+    let active = true
+
     void (async () => {
       try {
         const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/track-asset`, {
           signal: controller.signal,
         })
         if (response.status === 404) {
-          setTrackAssetUrl(null)
+          if (active) {
+            setTrackAsset(null)
+          }
           return
         }
         if (!response.ok) {
@@ -214,35 +218,43 @@ export function TrackMesh(): React.JSX.Element {
               `TrackMesh: track-asset request failed (${response.status}) for session ${sessionKey}`,
             )
           }
-          setTrackAssetUrl(null)
+          if (active) {
+            setTrackAsset(null)
+          }
           return
         }
 
         const payload: unknown = await response.json()
+        if (!active) {
+          return
+        }
         if (isTrackAssetResponse(payload)) {
-          setTrackAssetUrl(payload.url)
+          setTrackAsset({ sessionKey, url: payload.url })
           return
         }
 
         if (import.meta.env.DEV) {
           console.error(`TrackMesh: invalid track-asset payload for session ${sessionKey}`, payload)
         }
-        setTrackAssetUrl(null)
+        setTrackAsset(null)
       } catch (error) {
-        if (controller.signal.aborted) {
+        if (controller.signal.aborted || !active) {
           return
         }
         if (import.meta.env.DEV) {
           console.error(`TrackMesh: failed to fetch track-asset for session ${sessionKey}`, error)
         }
-        setTrackAssetUrl(null)
+        setTrackAsset(null)
       }
     })()
 
-    return () => controller.abort()
+    return () => {
+      active = false
+      controller.abort()
+    }
   }, [sessionKey, trackAssetVersion])
 
-  const resolvedTrackAssetUrl = sessionKey ? trackAssetUrl : null
+  const resolvedTrackAssetUrl = trackAssetUrlForSession(sessionKey, trackAsset)
 
   useEffect(() => {
     if (rafRef.current !== null) {

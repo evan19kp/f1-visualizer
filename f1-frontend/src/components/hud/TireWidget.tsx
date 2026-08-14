@@ -58,7 +58,15 @@ export function TireWidget(): React.JSX.Element {
     }
   }, [sessionKey, selectedDriver])
 
-  const activeStint = sessionKey && selectedDriver != null ? stint : null
+  // Bind visible stint to the current session/driver so a prior selection cannot flash.
+  const activeStint =
+    sessionKey &&
+    selectedDriver != null &&
+    stint != null &&
+    String(stint.sessionKey) === sessionKey &&
+    stint.driverNumber === selectedDriver
+      ? stint
+      : null
   const driverLabel = selectedDriver != null ? `#${selectedDriver}` : '—'
   const compoundLabel = activeStint != null ? formatCompound(activeStint.compound) : '—'
   const ageLabel =
