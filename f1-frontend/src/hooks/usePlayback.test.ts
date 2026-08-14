@@ -174,4 +174,66 @@ describe('usePlayback', () => {
     expect(result.current.playback?.current).not.toBe('session-a-seek')
     expect(result.current.playbackError).toBeNull()
   })
+
+  it('clears a prior session playback error when the session key changes', async () => {
+    let rejectPause!: (reason?: unknown) => void
+    const pauseResponse = new Promise<Response>((_resolve, reject) => {
+      rejectPause = reject
+    })
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (method === 'POST' && url.includes('/api/sessions/111/playback/pause')) {
+        return pauseResponse
+      }
+      if (method === 'GET' && url.includes('/api/sessions/111/playback')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(playbackState('session-a')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      if (method === 'GET' && url.includes('/api/sessions/222/playback')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(playbackState('session-b')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected url: ${method} ${url}`))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, rerender } = renderHook(
+      ({ sessionKey }: { sessionKey: string }) => usePlayback(sessionKey),
+      { initialProps: { sessionKey: '111' } },
+    )
+
+    await waitFor(() => {
+      expect(result.current.playback?.current).toBe('session-a')
+    })
+
+    let pauseDone!: Promise<void>
+    await act(async () => {
+      pauseDone = result.current.pause()
+    })
+
+    await act(async () => {
+      rejectPause(new Error('Playback request failed: 503'))
+      await pauseDone
+    })
+
+    expect(result.current.playbackError).toBe('Playback request failed: 503')
+
+    rerender({ sessionKey: '222' })
+
+    await waitFor(() => {
+      expect(result.current.playback?.current).toBe('session-b')
+    })
+
+    expect(result.current.playbackError).toBeNull()
+  })
 })
