@@ -34,7 +34,7 @@ Last updated: 2026-08-14 — via PR #47: test(frontend): add automated test foun
 - End-to-end demo runtime on this machine — state: code + unit tests support it; Docker stack / browser / OpenF1 live path not exercised in this assessment (unverified)
 
 ## Planned
-- Frontend browser e2e tests — source: PR #47 deferred scope; backend/data/browser runtime matrix not defined
+- Frontend automated coverage for WebSocket/replay/HUD flows and browser e2e — source: PR #47 deferred scope; current tests cover only track progress, race state, auth, and the connection banner; backend/data/browser runtime matrix not defined for e2e
 - ESLint 9 flat config — source: PR #47 deferred scope; `npm run lint` unusable without flat config
 - npm audit dependency remediation — source: PR #47 deferred scope; five findings outside test-runner patch
 - Frontend production container/image — source: inferred gap (README: build `dist/` and serve statically; no frontend Dockerfile)
@@ -48,7 +48,7 @@ Last updated: 2026-08-14 — via PR #47: test(frontend): add automated test foun
 - ~~Playback control auth depends on JWT outside DEV/`DEV_MODE`; without auto-login, play/pause/seek fail closed in production frontend path~~ — replaced by PR #42 AuthPanel login flow, reason: production header login UI provides JWT for protected client paths
 
 ## Known Issues / Deferred Scope
-- No frontend browser e2e tests — surfaced in PR #47, deferred because: backend/data/browser runtime matrix not defined
+- Frontend automation is limited to a narrow unit/component foundation; WebSocket, replay, broader HUD flows, and browser e2e remain manual — surfaced in PR #47, deferred because: broader coverage and the e2e runtime matrix need separate scope
 - ESLint 9 `npm run lint` unusable (no flat config) — surfaced in PR #47, deferred because: lint config fix scoped separately from test foundation
 - Five npm audit findings remain — surfaced in PR #47, deferred because: outside patched test-runner dependencies; needs scoped remediation PR
 - `IngestionStatusController` has no dedicated test (status service covered indirectly elsewhere)
@@ -58,7 +58,6 @@ Last updated: 2026-08-14 — via PR #47: test(frontend): add automated test foun
 - Login is inline header panel only (no dedicated route/page) — surfaced in PR #42, deferred because: full-page auth out of scope for this PR
 - Track GLB assets are not stored in git — empty scene mesh until generate/publish to S3/LocalStack
 - `RaceEventType.UNDERCUT` / `OVERTAKE` appear only in tests/prompts today — detector never produces them
-- GitHub issues/PRs unavailable in this environment (`gh` not installed) — tracker items not cross-checked
 - Integration tests (`*IT`) and full `./mvnw verify` not run in this bootstrap (Docker/Testcontainers required)
 
 ## Open Questions
