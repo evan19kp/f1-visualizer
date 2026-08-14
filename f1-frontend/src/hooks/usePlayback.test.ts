@@ -106,6 +106,78 @@ describe('usePlayback', () => {
     expect(result.current.playback?.current).toBe('seek-result')
   })
 
+  it('does not start a poll while a playback control is in flight', async () => {
+    let resolveSeek!: (value: Response) => void
+    let resolveMidControlPoll!: (value: Response) => void
+    const seekResponse = new Promise<Response>((resolve) => {
+      resolveSeek = resolve
+    })
+    const midControlPoll = new Promise<Response>((resolve) => {
+      resolveMidControlPoll = resolve
+    })
+    let getCount = 0
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (method === 'GET' && url.includes('/api/sessions/111/playback')) {
+        getCount += 1
+        if (getCount === 1) {
+          return Promise.resolve(
+            new Response(JSON.stringify(playbackState('initial-poll')), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          )
+        }
+        return midControlPoll
+      }
+      if (method === 'POST' && url.includes('/api/sessions/111/playback/seek')) {
+        return seekResponse
+      }
+      return Promise.reject(new Error(`unexpected url: ${method} ${url}`))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback('111'))
+    await waitFor(() => {
+      expect(result.current.playback?.current).toBe('initial-poll')
+    })
+
+    let seekDone!: Promise<void>
+    await act(async () => {
+      seekDone = result.current.seek('2023-01-01T00:30:00Z')
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_000)
+    })
+    expect(getCount).toBe(1)
+
+    await act(async () => {
+      resolveSeek(
+        new Response(JSON.stringify(playbackState('seek-result')), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      await seekDone
+    })
+
+    await act(async () => {
+      resolveMidControlPoll(
+        new Response(JSON.stringify(playbackState('stale-poll')), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      await midControlPoll
+      await Promise.resolve()
+    })
+
+    expect(result.current.playback?.current).toBe('seek-result')
+  })
+
   it('does not expose the previous session playback after the session key changes', async () => {
     let resolveSessionA!: (value: Response) => void
     const sessionAResponse = new Promise<Response>((resolve) => {
