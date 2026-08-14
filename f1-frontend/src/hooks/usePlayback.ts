@@ -60,6 +60,8 @@ export interface PlaybackState {
   historyLoaded: boolean
 }
 
+const PLAYBACK_REQUEST_TIMEOUT_MS = 8_000
+
 export function usePlayback(sessionKey: string): {
   playback: PlaybackState | null
   playbackError: string | null
@@ -79,11 +81,17 @@ export function usePlayback(sessionKey: string): {
   const sessionKeyRef = useRef(sessionKey)
   const controlGenerationRef = useRef(0)
   const pendingControlRef = useRef<number | null>(null)
+  const activePollControllerRef = useRef<AbortController | null>(null)
+  const activeControlControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     sessionKeyRef.current = sessionKey
     controlGenerationRef.current += 1
     pendingControlRef.current = null
+    return () => {
+      activePollControllerRef.current?.abort()
+      activeControlControllerRef.current?.abort()
+    }
   }, [sessionKey])
 
   useEffect(() => {
@@ -91,7 +99,6 @@ export function usePlayback(sessionKey: string): {
       return
     }
 
-    const controller = new AbortController()
     let active = true
     let pollInFlight = false
 
@@ -102,6 +109,12 @@ export function usePlayback(sessionKey: string): {
 
       pollInFlight = true
       const controlGeneration = controlGenerationRef.current
+      const controller = new AbortController()
+      activePollControllerRef.current = controller
+      const requestTimeout = window.setTimeout(
+        () => controller.abort(),
+        PLAYBACK_REQUEST_TIMEOUT_MS,
+      )
       try {
         const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback`, {
           signal: controller.signal,
@@ -130,6 +143,10 @@ export function usePlayback(sessionKey: string): {
           setPlaybackSessionKey(sessionKey)
         }
       } finally {
+        window.clearTimeout(requestTimeout)
+        if (activePollControllerRef.current === controller) {
+          activePollControllerRef.current = null
+        }
         pollInFlight = false
       }
     }
@@ -138,7 +155,7 @@ export function usePlayback(sessionKey: string): {
     const interval = window.setInterval(() => void poll(), 1000)
     return () => {
       active = false
-      controller.abort()
+      activePollControllerRef.current?.abort()
       window.clearInterval(interval)
       setReplayMode(false)
     }
@@ -155,6 +172,14 @@ export function usePlayback(sessionKey: string): {
     const requestedKey = sessionKey
     const controlId = ++controlGenerationRef.current
     pendingControlRef.current = controlId
+    activePollControllerRef.current?.abort()
+    activeControlControllerRef.current?.abort()
+    const controller = new AbortController()
+    activeControlControllerRef.current = controller
+    const requestTimeout = window.setTimeout(
+      () => controller.abort(),
+      PLAYBACK_REQUEST_TIMEOUT_MS,
+    )
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (import.meta.env.DEV) {
@@ -170,6 +195,7 @@ export function usePlayback(sessionKey: string): {
         method: 'POST',
         headers,
         body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
       })
       if (!response.ok) {
         clearAuthIfUnauthorized(response.status)
@@ -189,6 +215,10 @@ export function usePlayback(sessionKey: string): {
       setPlaybackErrorSessionKey(requestedKey)
       return state
     } finally {
+      window.clearTimeout(requestTimeout)
+      if (activeControlControllerRef.current === controller) {
+        activeControlControllerRef.current = null
+      }
       if (pendingControlRef.current === controlId) {
         pendingControlRef.current = null
       }

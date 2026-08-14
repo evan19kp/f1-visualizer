@@ -178,6 +178,145 @@ describe('usePlayback', () => {
     expect(result.current.playback?.current).toBe('seek-result')
   })
 
+  it('aborts an in-flight poll when a control starts and resumes polling', async () => {
+    let getCount = 0
+    let firstPollAborted = false
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (method === 'GET' && url.includes('/api/sessions/111/playback')) {
+        getCount += 1
+        if (getCount === 1) {
+          return new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => {
+              firstPollAborted = true
+              reject(new DOMException('Aborted', 'AbortError'))
+            })
+          })
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify(playbackState('resumed-poll')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      if (method === 'POST' && url.includes('/api/sessions/111/playback/seek')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(playbackState('seek-result')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected url: ${method} ${url}`))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback('111'))
+    expect(getCount).toBe(1)
+
+    await act(async () => {
+      await result.current.seek('2023-01-01T00:30:00Z')
+    })
+    expect(firstPollAborted).toBe(true)
+    expect(result.current.playback?.current).toBe('seek-result')
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_000)
+    })
+
+    expect(getCount).toBe(2)
+    expect(result.current.playback?.current).toBe('resumed-poll')
+  })
+
+  it('times out a stalled poll and starts a later poll', async () => {
+    let getCount = 0
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      getCount += 1
+      if (getCount === 1) {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'))
+          })
+        })
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(playbackState('recovered-poll')), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback('111'))
+    expect(getCount).toBe(1)
+
+    await act(async () => {
+      vi.advanceTimersByTime(8_000)
+      await Promise.resolve()
+    })
+    expect(getCount).toBe(1)
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_000)
+    })
+
+    expect(getCount).toBe(2)
+    expect(result.current.playback?.current).toBe('recovered-poll')
+  })
+
+  it('times out a stalled control and resumes polling', async () => {
+    let getCount = 0
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (method === 'GET' && url.includes('/api/sessions/111/playback')) {
+        getCount += 1
+        return Promise.resolve(
+          new Response(JSON.stringify(playbackState(getCount === 1 ? 'initial-poll' : 'recovered-poll')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      if (method === 'POST' && url.includes('/api/sessions/111/playback/seek')) {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'))
+          })
+        })
+      }
+      return Promise.reject(new Error(`unexpected url: ${method} ${url}`))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback('111'))
+    await waitFor(() => {
+      expect(result.current.playback?.current).toBe('initial-poll')
+    })
+
+    let seekDone!: Promise<void>
+    await act(async () => {
+      seekDone = result.current.seek('2023-01-01T00:30:00Z')
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      vi.advanceTimersByTime(8_000)
+      await seekDone
+    })
+    expect(getCount).toBe(1)
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_000)
+    })
+
+    expect(getCount).toBe(2)
+    expect(result.current.playback?.current).toBe('recovered-poll')
+  })
+
   it('does not expose the previous session playback after the session key changes', async () => {
     let resolveSessionA!: (value: Response) => void
     const sessionAResponse = new Promise<Response>((resolve) => {
