@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { API_URL } from '../config/session'
 import { clearAuthIfUnauthorized, ensureDevAuth } from '../lib/auth'
 import { useRaceStore } from '../store/raceStore'
@@ -71,33 +71,58 @@ export function usePlayback(sessionKey: string): {
   const authToken = useRaceStore((s) => s.authToken)
   const setReplayMode = useRaceStore((s) => s.setReplayMode)
   const [playback, setPlayback] = useState<PlaybackState | null>(null)
+  const [playbackSessionKey, setPlaybackSessionKey] = useState(sessionKey)
   const [playbackError, setPlaybackError] = useState<string | null>(null)
+  const [playbackErrorSessionKey, setPlaybackErrorSessionKey] = useState(sessionKey)
+  const sessionKeyRef = useRef(sessionKey)
 
-  const refresh = useCallback(async (): Promise<void> => {
-    if (!sessionKey) {
-      setPlayback(null)
-      return
-    }
-    try {
-      const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback`)
-      if (response.ok) {
-        setPlayback((await response.json()) as PlaybackState)
-      } else {
-        setPlayback(null)
-      }
-    } catch {
-      setPlayback(null)
-    }
+  useEffect(() => {
+    sessionKeyRef.current = sessionKey
   }, [sessionKey])
 
   useEffect(() => {
-    void refresh()
-    const interval = window.setInterval(() => void refresh(), 1000)
+    if (!sessionKey) {
+      return
+    }
+
+    const controller = new AbortController()
+    let active = true
+
+    const applyPlayback = (next: PlaybackState | null): void => {
+      if (!active) {
+        return
+      }
+      setPlayback(next)
+      setPlaybackSessionKey(sessionKey)
+    }
+
+    const poll = async (): Promise<void> => {
+      try {
+        const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback`, {
+          signal: controller.signal,
+        })
+        if (!response.ok) {
+          applyPlayback(null)
+          return
+        }
+        const data = (await response.json()) as PlaybackState
+        applyPlayback(data)
+      } catch (error) {
+        if (active && !(error instanceof DOMException && error.name === 'AbortError')) {
+          applyPlayback(null)
+        }
+      }
+    }
+
+    void poll()
+    const interval = window.setInterval(() => void poll(), 1000)
     return () => {
+      active = false
+      controller.abort()
       window.clearInterval(interval)
       setReplayMode(false)
     }
-  }, [refresh, setReplayMode])
+  }, [sessionKey, setReplayMode])
 
   useEffect(() => {
     setReplayMode(false)
@@ -107,6 +132,7 @@ export function usePlayback(sessionKey: string): {
     path: string,
     body?: Record<string, unknown>,
   ): Promise<PlaybackState | null> => {
+    const requestedKey = sessionKey
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (import.meta.env.DEV) {
       await ensureDevAuth()
@@ -117,7 +143,7 @@ export function usePlayback(sessionKey: string): {
     } else if (!import.meta.env.DEV) {
       throw new Error('Login required for playback controls')
     }
-    const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback${path}`, {
+    const response = await fetch(`${API_URL}/api/sessions/${requestedKey}/playback${path}`, {
       method: 'POST',
       headers,
       body: body ? JSON.stringify(body) : undefined,
@@ -127,8 +153,13 @@ export function usePlayback(sessionKey: string): {
       throw new Error(`Playback request failed: ${response.status}`)
     }
     const state = (await response.json()) as PlaybackState
+    if (sessionKeyRef.current !== requestedKey) {
+      return state
+    }
     setPlayback(state)
+    setPlaybackSessionKey(requestedKey)
     setPlaybackError(null)
+    setPlaybackErrorSessionKey(requestedKey)
     return state
   }
 
@@ -141,10 +172,15 @@ export function usePlayback(sessionKey: string): {
   }
 
   const wrapControl = async (action: () => Promise<void>): Promise<void> => {
+    const requestedKey = sessionKey
     try {
       await action()
     } catch (error) {
+      if (sessionKeyRef.current !== requestedKey) {
+        return
+      }
       setPlaybackError(error instanceof Error ? error.message : 'Playback control failed')
+      setPlaybackErrorSessionKey(requestedKey)
     }
   }
 
@@ -156,9 +192,12 @@ export function usePlayback(sessionKey: string): {
   }
 
   const pause = async (): Promise<void> => {
+    const requestedKey = sessionKey
     await wrapControl(async () => {
       await postPlayback('/pause')
-      disableReplayMode()
+      if (sessionKeyRef.current === requestedKey) {
+        disableReplayMode()
+      }
     })
   }
 
@@ -171,5 +210,16 @@ export function usePlayback(sessionKey: string): {
 
   const clearPlaybackError = (): void => setPlaybackError(null)
 
-  return { playback, playbackError, clearPlaybackError, play, pause, seek }
+  const activePlayback = sessionKey && playbackSessionKey === sessionKey ? playback : null
+  const activePlaybackError =
+    sessionKey && playbackErrorSessionKey === sessionKey ? playbackError : null
+
+  return {
+    playback: activePlayback,
+    playbackError: activePlaybackError,
+    clearPlaybackError,
+    play,
+    pause,
+    seek,
+  }
 }
