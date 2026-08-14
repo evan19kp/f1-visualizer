@@ -25,6 +25,54 @@ afterEach(() => {
 })
 
 describe('usePlayback', () => {
+  it('ignores an older same-session poll that resolves after a newer poll', async () => {
+    let resolveFirstPoll!: (value: Response) => void
+    let resolveSecondPoll!: (value: Response) => void
+    const firstPoll = new Promise<Response>((resolve) => {
+      resolveFirstPoll = resolve
+    })
+    const secondPoll = new Promise<Response>((resolve) => {
+      resolveSecondPoll = resolve
+    })
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(firstPoll)
+      .mockReturnValueOnce(secondPoll)
+      .mockImplementation(() => new Promise<Response>(() => {}))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback('111'))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_000)
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      resolveSecondPoll(
+        new Response(JSON.stringify(playbackState('newer-poll')), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      await secondPoll
+    })
+    expect(result.current.playback?.current).toBe('newer-poll')
+
+    await act(async () => {
+      resolveFirstPoll(
+        new Response(JSON.stringify(playbackState('older-poll')), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      await firstPoll
+    })
+
+    expect(result.current.playback?.current).toBe('newer-poll')
+  })
+
   it('does not expose the previous session playback after the session key changes', async () => {
     let resolveSessionA!: (value: Response) => void
     const sessionAResponse = new Promise<Response>((resolve) => {

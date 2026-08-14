@@ -89,29 +89,33 @@ export function usePlayback(sessionKey: string): {
 
     const controller = new AbortController()
     let active = true
+    let nextPollId = 0
+    let latestAppliedPollId = 0
 
-    const applyPlayback = (next: PlaybackState | null): void => {
-      if (!active) {
+    const applyPlayback = (next: PlaybackState | null, pollId: number): void => {
+      if (!active || pollId < latestAppliedPollId) {
         return
       }
+      latestAppliedPollId = pollId
       setPlayback(next)
       setPlaybackSessionKey(sessionKey)
     }
 
     const poll = async (): Promise<void> => {
+      const pollId = ++nextPollId
       try {
         const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback`, {
           signal: controller.signal,
         })
         if (!response.ok) {
-          applyPlayback(null)
+          applyPlayback(null, pollId)
           return
         }
         const data = (await response.json()) as PlaybackState
-        applyPlayback(data)
+        applyPlayback(data, pollId)
       } catch (error) {
         if (active && !(error instanceof DOMException && error.name === 'AbortError')) {
-          applyPlayback(null)
+          applyPlayback(null, pollId)
         }
       }
     }
