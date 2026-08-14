@@ -220,7 +220,7 @@ export function usePlayback(sessionKey: string): {
         sessionKeyRef.current !== requestedKey ||
         controlGenerationRef.current !== controlId
       ) {
-        return state
+        return null
       }
       setPlayback(state)
       setPlaybackSessionKey(requestedKey)
@@ -281,8 +281,8 @@ export function usePlayback(sessionKey: string): {
   const pause = async (): Promise<void> => {
     const requestedKey = sessionKey
     await wrapControl(async () => {
-      await postPlayback('/pause')
-      if (sessionKeyRef.current === requestedKey) {
+      const state = await postPlayback('/pause')
+      if (state !== null && sessionKeyRef.current === requestedKey) {
         disableReplayMode()
       }
     })

@@ -381,6 +381,73 @@ describe('usePlayback', () => {
     expect(result.current.playbackError).toBeNull()
   })
 
+  it('does not let a superseded pause disable replay mode after play succeeds', async () => {
+    let resolvePause!: (value: Response) => void
+    let pauseAborted = false
+    const pauseResponse = new Promise<Response>((resolve) => {
+      resolvePause = resolve
+    })
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (method === 'GET' && url.includes('/api/sessions/111/playback')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(playbackState('initial-poll')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      if (method === 'POST' && url.includes('/api/sessions/111/playback/pause')) {
+        init?.signal?.addEventListener('abort', () => {
+          pauseAborted = true
+        })
+        return pauseResponse
+      }
+      if (method === 'POST' && url.includes('/api/sessions/111/playback/play')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(playbackState('play-result')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected url: ${method} ${url}`))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback('111'))
+    await waitFor(() => {
+      expect(result.current.playback?.current).toBe('initial-poll')
+    })
+
+    let pauseDone!: Promise<void>
+    await act(async () => {
+      pauseDone = result.current.pause()
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      await result.current.play()
+    })
+    expect(pauseAborted).toBe(true)
+    expect(result.current.playback?.current).toBe('play-result')
+    expect(useRaceStore.getState().replayMode).toBe(true)
+
+    await act(async () => {
+      resolvePause(
+        new Response(JSON.stringify(playbackState('late-pause')), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      await pauseDone
+    })
+
+    expect(result.current.playback?.current).toBe('play-result')
+    expect(useRaceStore.getState().replayMode).toBe(true)
+  })
+
   it('does not expose the previous session playback after the session key changes', async () => {
     let resolveSessionA!: (value: Response) => void
     const sessionAResponse = new Promise<Response>((resolve) => {
