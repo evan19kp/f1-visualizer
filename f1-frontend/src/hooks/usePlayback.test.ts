@@ -107,4 +107,71 @@ describe('usePlayback', () => {
 
     expect(result.current.playback).toBeNull()
   })
+
+  it('ignores a late playback control response after the session key changes', async () => {
+    let resolveSeek!: (value: Response) => void
+    const seekResponse = new Promise<Response>((resolve) => {
+      resolveSeek = resolve
+    })
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (method === 'POST' && url.includes('/api/sessions/111/playback/seek')) {
+        return seekResponse
+      }
+      if (method === 'GET' && url.includes('/api/sessions/111/playback')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(playbackState('session-a')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      if (method === 'GET' && url.includes('/api/sessions/222/playback')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(playbackState('session-b')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.reject(new Error(`unexpected url: ${method} ${url}`))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, rerender } = renderHook(
+      ({ sessionKey }: { sessionKey: string }) => usePlayback(sessionKey),
+      { initialProps: { sessionKey: '111' } },
+    )
+
+    await waitFor(() => {
+      expect(result.current.playback?.current).toBe('session-a')
+    })
+
+    let seekDone!: Promise<void>
+    await act(async () => {
+      seekDone = result.current.seek('2023-01-01T00:30:00Z')
+    })
+
+    rerender({ sessionKey: '222' })
+
+    await waitFor(() => {
+      expect(result.current.playback?.current).toBe('session-b')
+    })
+
+    await act(async () => {
+      resolveSeek(
+        new Response(JSON.stringify(playbackState('session-a-seek')), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      await seekDone
+    })
+
+    expect(result.current.playback?.current).toBe('session-b')
+    expect(result.current.playback?.current).not.toBe('session-a-seek')
+    expect(result.current.playbackError).toBeNull()
+  })
 })

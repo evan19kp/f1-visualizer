@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { API_URL } from '../config/session'
 import { clearAuthIfUnauthorized, ensureDevAuth } from '../lib/auth'
 import { useRaceStore } from '../store/raceStore'
@@ -73,6 +73,8 @@ export function usePlayback(sessionKey: string): {
   const [playback, setPlayback] = useState<PlaybackState | null>(null)
   const [playbackSessionKey, setPlaybackSessionKey] = useState(sessionKey)
   const [playbackError, setPlaybackError] = useState<string | null>(null)
+  const sessionKeyRef = useRef(sessionKey)
+  sessionKeyRef.current = sessionKey
 
   useEffect(() => {
     if (!sessionKey) {
@@ -126,6 +128,7 @@ export function usePlayback(sessionKey: string): {
     path: string,
     body?: Record<string, unknown>,
   ): Promise<PlaybackState | null> => {
+    const requestedKey = sessionKey
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (import.meta.env.DEV) {
       await ensureDevAuth()
@@ -136,7 +139,7 @@ export function usePlayback(sessionKey: string): {
     } else if (!import.meta.env.DEV) {
       throw new Error('Login required for playback controls')
     }
-    const response = await fetch(`${API_URL}/api/sessions/${sessionKey}/playback${path}`, {
+    const response = await fetch(`${API_URL}/api/sessions/${requestedKey}/playback${path}`, {
       method: 'POST',
       headers,
       body: body ? JSON.stringify(body) : undefined,
@@ -146,8 +149,12 @@ export function usePlayback(sessionKey: string): {
       throw new Error(`Playback request failed: ${response.status}`)
     }
     const state = (await response.json()) as PlaybackState
+    // Session may have changed while the control request was in flight — do not clobber.
+    if (sessionKeyRef.current !== requestedKey) {
+      return state
+    }
     setPlayback(state)
-    setPlaybackSessionKey(sessionKey)
+    setPlaybackSessionKey(requestedKey)
     setPlaybackError(null)
     return state
   }
@@ -161,9 +168,13 @@ export function usePlayback(sessionKey: string): {
   }
 
   const wrapControl = async (action: () => Promise<void>): Promise<void> => {
+    const requestedKey = sessionKey
     try {
       await action()
     } catch (error) {
+      if (sessionKeyRef.current !== requestedKey) {
+        return
+      }
       setPlaybackError(error instanceof Error ? error.message : 'Playback control failed')
     }
   }
@@ -176,9 +187,12 @@ export function usePlayback(sessionKey: string): {
   }
 
   const pause = async (): Promise<void> => {
+    const requestedKey = sessionKey
     await wrapControl(async () => {
       await postPlayback('/pause')
-      disableReplayMode()
+      if (sessionKeyRef.current === requestedKey) {
+        disableReplayMode()
+      }
     })
   }
 
