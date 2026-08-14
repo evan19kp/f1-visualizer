@@ -44,6 +44,10 @@ jobs:
         working-directory: f1-frontend
         run: npm ci
 
+      - name: Lint frontend
+        working-directory: f1-frontend
+        run: npm run lint
+
       - name: Test frontend
         working-directory: f1-frontend
         run: npm test
