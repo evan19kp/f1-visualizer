@@ -11,19 +11,30 @@ export function ConnectionBanner(): React.JSX.Element | null {
   const positionsFetchError = useRaceStore((s) => s.positionsFetchError)
   const [connectingSlow, setConnectingSlow] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [bannerSource, setBannerSource] = useState({
+    connectionStatus,
+    positionsFetchError,
+  })
+
+  // Reset ephemeral UI when the underlying connection signals change (avoid setState-in-effect).
+  if (
+    connectionStatus !== bannerSource.connectionStatus ||
+    positionsFetchError !== bannerSource.positionsFetchError
+  ) {
+    setBannerSource({ connectionStatus, positionsFetchError })
+    setDismissed(false)
+    if (connectionStatus !== 'connecting') {
+      setConnectingSlow(false)
+    }
+  }
 
   useEffect(() => {
     if (connectionStatus !== 'connecting') {
-      setConnectingSlow(false)
       return
     }
     const timer = window.setTimeout(() => setConnectingSlow(true), CONNECTING_HINT_MS)
     return () => window.clearTimeout(timer)
   }, [connectionStatus])
-
-  useEffect(() => {
-    setDismissed(false)
-  }, [connectionStatus, positionsFetchError])
 
   const showDisconnected = connectionStatus === 'disconnected'
   const showSlowConnect = connectionStatus === 'connecting' && connectingSlow
