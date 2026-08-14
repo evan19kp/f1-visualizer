@@ -20,7 +20,7 @@ Last updated: 2026-08-14 — via PR #47: test(frontend): add automated test foun
 - Frontend HUD: session picker, playback bar, gap tower, tire widget, insight feed, camera selector, connection banner, dev tools — verified by: components mounted from `App.tsx` and API hooks
 - Track-mesh Python generator + publish/generate scripts (with Python tests in tree) — verified by: `tools/track-mesh/` package + `tests/test_track_mesh.py` (Python test run unverified this session)
 - Local infra compose (Postgres/Redis/LocalStack) + API Dockerfile + optional `api` compose profile — verified by: `docker-compose.yml`, `Dockerfile`
-- CI: backend `./mvnw verify` + frontend build/type-check — verified by: `.github/workflows/ci.yml` (workflow execution on GitHub unverified this session)
+- CI: backend `./mvnw verify` + frontend test/build/type-check + frontend production-image verification — verified by: `.github/workflows/ci.yml`; all three jobs passed on PR #48
 - Dev bootstrap scripts `scripts/dev-up.sh` / `scripts/dev-check.sh` — verified by: files present (script execution unverified this session)
 - [PR #42] Production frontend login UI: header AuthPanel (login/logout), JWT in sessionStorage with expiresInMs, session restore on boot, 401 clears auth on protected paths, dev auto-login preserved — 2026-08-13
 - [PR #47] Frontend automated test foundation: Vitest + jsdom + Testing Library, `npm test`/`test:watch`, CI `npm test` step, 11 tests (trackProgress, raceStore, auth, ConnectionBanner) — 2026-08-14
