@@ -59,13 +59,30 @@ services:
       JWT_SECRET: docker-local-jwt-secret-min-32-chars # DO NOT USE IN PRODUCTION — weak placeholder for local development only
       ADMIN_USER: admin
       ADMIN_PASSWORD: docker-local-admin-pass # DO NOT USE IN PRODUCTION — replace with a strong secret or inject via env
-      WEBSOCKET_ALLOWED_ORIGINS: http://localhost:5173
+      WEBSOCKET_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:8081
       INGESTION_ENABLED: "false" # Disabled by default to avoid unsolicited OpenF1 polling; set to "true" + OpenF1 credentials to enable (see README)
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  frontend:
+    profiles: ["frontend"]
+    build:
+      context: f1-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_SESSION_KEY: "9161"
+        VITE_WS_URL: /ws
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      # Upstream Spring API — nginx proxies /api and /ws to this host.
+      API_BACKEND: http://api:8080
+    depends_on:
+      - api
 
 volumes:
   postgres_data:
