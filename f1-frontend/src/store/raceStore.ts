@@ -12,6 +12,7 @@ interface RaceState {
   selectedDriver: number | null
   cameraMode: CameraMode
   authToken: string | null
+  authUsername: string | null
   trackAssetVersion: number
   replayMode: boolean
   setSessionKey: (key: string) => void
@@ -22,7 +23,7 @@ interface RaceState {
   setConnectionStatus: (status: ConnectionStatus) => void
   setPositionsFetchError: (error: string | null) => void
   setCameraMode: (mode: CameraMode) => void
-  setAuthToken: (token: string | null) => void
+  setAuthSession: (token: string | null, username: string | null) => void
   bumpTrackAssetVersion: () => void
   clearPositions: () => void
 }
@@ -35,6 +36,7 @@ export const useRaceStore = create<RaceState>((set) => ({
   selectedDriver: null,
   cameraMode: 'orbit',
   authToken: null,
+  authUsername: null,
   trackAssetVersion: 0,
   replayMode: false,
   setSessionKey: (key) =>
@@ -54,7 +56,7 @@ export const useRaceStore = create<RaceState>((set) => ({
   setConnectionStatus: (status) => set({ connectionStatus: status }),
   setPositionsFetchError: (error) => set({ positionsFetchError: error }),
   setCameraMode: (mode) => set({ cameraMode: mode }),
-  setAuthToken: (token) => set({ authToken: token }),
+  setAuthSession: (token, username) => set({ authToken: token, authUsername: username }),
   bumpTrackAssetVersion: () =>
     set((state) => ({ trackAssetVersion: state.trackAssetVersion + 1 })),
   clearPositions: () => set({ positions: new Map() }),

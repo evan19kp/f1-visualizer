@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { ensureDevAuth } from '../../lib/auth'
+import { useState } from 'react'
 import { backfillSessionHistory, generateTrackMesh, resetSessionData } from '../../lib/devApi'
 import { useRaceStore } from '../../store/raceStore'
 
@@ -19,10 +18,6 @@ export function DevToolsPanel(): React.JSX.Element | null {
   const [resetState, setResetState] = useState<ActionState>('idle')
   const [backfillState, setBackfillState] = useState<ActionState>('idle')
   const [message, setMessage] = useState<string | null>(null)
-
-  useEffect(() => {
-    void ensureDevAuth()
-  }, [])
 
   if (!isDevToolsEnabled()) {
     return null

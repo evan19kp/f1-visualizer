@@ -198,7 +198,7 @@ curl -s http://localhost:8080/actuator/health
 
 With `SPRING_PROFILES_ACTIVE=prod`, AI race-engineer insights are stored in Redis (`app.insights.store=redis`, env: `INSIGHTS_STORE=redis`), so commentary survives API restarts and works with multiple API instances sharing one Redis.
 
-Frontend production build: `npm run build` in `f1-frontend/`, then serve `dist/` with nginx or any static host (no separate frontend Dockerfile).
+Frontend production build: `npm run build` in `f1-frontend/`, or build the production image with `docker build -t f1-frontend f1-frontend/` (nginx serves `dist/` and proxies `/api` + `/ws` to `API_BACKEND`). For compose: `docker compose --profile api --profile frontend up` → http://localhost:8081.
 
 ## Modules
 
@@ -380,7 +380,7 @@ npm ci
 npm run build
 ```
 
-Serve `f1-frontend/dist/` with any static host (nginx, S3 + CloudFront, etc.). **Do not** set `VITE_DEV_AUTOLOGIN=true` in production — use the login API and JWT instead (see [AI & auth](#ai--auth)).
+Serve `f1-frontend/dist/` with any static host (nginx, S3 + CloudFront, etc.), or use the included `f1-frontend/Dockerfile` (nginx + optional `/api`/`/ws` proxy via `API_BACKEND`). **Do not** set `VITE_DEV_AUTOLOGIN=true` in production — use the login API and JWT instead (see [AI & auth](#ai--auth)).
 
 ### Reverse proxy (optional)
 
