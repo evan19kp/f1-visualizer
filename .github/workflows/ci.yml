@@ -40,9 +40,16 @@ jobs:
           cache: npm
           cache-dependency-path: f1-frontend/package-lock.json
 
+      - name: Install frontend dependencies
+        working-directory: f1-frontend
+        run: npm ci
+
+      - name: Test frontend
+        working-directory: f1-frontend
+        run: npm test
+
       - name: Build and type-check frontend
         working-directory: f1-frontend
         run: |
-          npm ci
           npm run build
           npm run type-check
