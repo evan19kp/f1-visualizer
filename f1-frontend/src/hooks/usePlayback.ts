@@ -73,8 +73,14 @@ export function usePlayback(sessionKey: string): {
   const [playback, setPlayback] = useState<PlaybackState | null>(null)
   const [playbackSessionKey, setPlaybackSessionKey] = useState(sessionKey)
   const [playbackError, setPlaybackError] = useState<string | null>(null)
+  const [playbackErrorSessionKey, setPlaybackErrorSessionKey] = useState(sessionKey)
+  // Latest session key for in-flight control responses. Synced in an effect so we
+  // do not write refs during render (react-hooks/refs).
   const sessionKeyRef = useRef(sessionKey)
-  sessionKeyRef.current = sessionKey
+
+  useEffect(() => {
+    sessionKeyRef.current = sessionKey
+  }, [sessionKey])
 
   useEffect(() => {
     if (!sessionKey) {
@@ -156,6 +162,7 @@ export function usePlayback(sessionKey: string): {
     setPlayback(state)
     setPlaybackSessionKey(requestedKey)
     setPlaybackError(null)
+    setPlaybackErrorSessionKey(requestedKey)
     return state
   }
 
@@ -176,6 +183,7 @@ export function usePlayback(sessionKey: string): {
         return
       }
       setPlaybackError(error instanceof Error ? error.message : 'Playback control failed')
+      setPlaybackErrorSessionKey(requestedKey)
     }
   }
 
@@ -205,9 +213,18 @@ export function usePlayback(sessionKey: string): {
 
   const clearPlaybackError = (): void => setPlaybackError(null)
 
-  // Only expose playback that belongs to the active session (avoids setState-in-effect clears
+  // Only expose playback/error that belong to the active session (avoids setState-in-effect clears
   // and prevents a prior session's poll/control result from flashing under a new key).
   const activePlayback = sessionKey && playbackSessionKey === sessionKey ? playback : null
+  const activePlaybackError =
+    sessionKey && playbackErrorSessionKey === sessionKey ? playbackError : null
 
-  return { playback: activePlayback, playbackError, clearPlaybackError, play, pause, seek }
+  return {
+    playback: activePlayback,
+    playbackError: activePlaybackError,
+    clearPlaybackError,
+    play,
+    pause,
+    seek,
+  }
 }
