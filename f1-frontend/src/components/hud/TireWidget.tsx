@@ -63,7 +63,7 @@ export function TireWidget(): React.JSX.Element {
     sessionKey &&
     selectedDriver != null &&
     stint != null &&
-    String(stint.sessionKey) === sessionKey &&
+    stint.sessionKey === Number(sessionKey) &&
     stint.driverNumber === selectedDriver
       ? stint
       : null

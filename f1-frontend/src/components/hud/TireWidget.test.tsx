@@ -15,6 +15,33 @@ afterEach(() => {
 })
 
 describe('TireWidget', () => {
+  it('accepts a numeric backend session key for a leading-zero manual key', async () => {
+    useRaceStore.setState({ sessionKey: '09161' })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            driverNumber: 1,
+            sessionKey: 9161,
+            compound: 'MEDIUM',
+            stintNumber: 1,
+            lapStart: 1,
+            lapEnd: null,
+            tyreAgeAtStart: 0,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+    )
+
+    render(<TireWidget />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Compound: Medium/)).toBeInTheDocument()
+    })
+  })
+
   it('does not show the previous driver compound after the selection changes', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input)

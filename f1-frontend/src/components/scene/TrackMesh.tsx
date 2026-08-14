@@ -69,7 +69,7 @@ function updateCenterLineGeometry(geometry: BufferGeometry, vertices: Float32Arr
   geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3))
 }
 
-function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
+export function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
   const loadUrl = useMemo(() => resolveTrackAssetUrl(url), [url])
   const { scene } = useGLTF(loadUrl)
   const trackMaterial = useMemo(
@@ -94,13 +94,9 @@ function GlbTrackMesh({ url }: { url: string }): React.JSX.Element {
   useEffect(() => {
     return () => {
       trackMaterial.dispose()
-      clonedScene.traverse((object) => {
-        if (object instanceof Mesh) {
-          object.geometry.dispose()
-        }
-      })
+      // scene.clone() shares geometry with useGLTF's cache; the loader owns its disposal.
     }
-  }, [clonedScene, trackMaterial])
+  }, [trackMaterial])
 
   return (
     <primitive
