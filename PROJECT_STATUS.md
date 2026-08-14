@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-08-14 — via PR #47: test(frontend): add automated test foundation
+Last updated: 2026-08-14 — via PR #48: chore: update project status — PR #47 merged
 
 ## Completed
 - Maven multi-module backend (`f1-core`, `f1-persistence`, `f1-ingestion`, `f1-ai`, `f1-api`) with Spring Boot API entrypoint — verified by: module layout + `F1VisualizerApplication`
@@ -45,6 +45,9 @@ Last updated: 2026-08-14 — via PR #47: test(frontend): add automated test foun
 ## Superseded
 - (none found on `main`; historical sprint/fix remote branches remain as delivery history, not alternate in-tree implementations)
 - ~~Playback control auth depends on JWT outside DEV/`DEV_MODE`; without auto-login, play/pause/seek fail closed in production frontend path~~ — replaced by PR #42 AuthPanel login flow, reason: production header login UI provides JWT for protected client paths
+- ~~Frontend automated tests~~ — replaced by PR #47 test foundation, reason: Vitest/jsdom/Testing Library + CI `npm test` shipped; broader WebSocket/replay/HUD/e2e coverage split to separate planned items
+- ~~Frontend production container/image~~ — replaced by existing CI frontend production-image verification job, reason: documentation gap only; verify step already in `.github/workflows/ci.yml`
+- ~~GitHub issues/PRs unavailable in this environment (`gh` not installed)~~ — replaced by cloud agent GitHub tooling, reason: tracker cross-check now available in automation runs
 
 ## Known Issues / Deferred Scope
 - Frontend automation is limited to a narrow unit/component foundation; WebSocket, replay, broader HUD flows, and browser e2e remain manual — surfaced in PR #47, deferred because: broader coverage and the e2e runtime matrix need separate scope
