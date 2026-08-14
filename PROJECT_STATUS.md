@@ -43,7 +43,7 @@ Last updated: 2026-08-14 — via PR #48: chore: update project status — PR #47
 - Next product sprint after Sprint 11 — source: `.cursor/plans/` ends at Sprint 11; no Sprint 12+ docs in repo
 
 ## Superseded
-- (none found on `main`; historical sprint/fix remote branches remain as delivery history, not alternate in-tree implementations)
+- Historical sprint/fix remote branches remain delivery history, not alternate in-tree implementations
 - ~~Playback control auth depends on JWT outside DEV/`DEV_MODE`; without auto-login, play/pause/seek fail closed in production frontend path~~ — replaced by PR #42 AuthPanel login flow, reason: production header login UI provides JWT for protected client paths
 - ~~Frontend automated tests~~ — replaced by PR #47 test foundation, reason: Vitest/jsdom/Testing Library + CI `npm test` shipped; broader WebSocket/replay/HUD/e2e coverage split to separate planned items
 - ~~Frontend production container/image~~ — replaced by existing CI frontend production-image verification job, reason: documentation gap only; verify step already in `.github/workflows/ci.yml`
